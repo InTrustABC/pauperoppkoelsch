@@ -1,0 +1,6 @@
+@import "tailwindcss";
+@plugin '@tailwindcss/typography';
+
+@theme {
+    --color-text: #000000;
+}
