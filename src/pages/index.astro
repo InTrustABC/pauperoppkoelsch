@@ -1,25 +1,88 @@
 ---
+import { Image } from "astro:assets";
 import H1 from "../components/H1.astro";
 import Main from "../components/Main.astro";
 import Layout from "../layouts/Layout.astro";
-
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+import AnimatedText from "../components/ui/AnimatedText.astro";
 ---
+
+<!-- Initializing AOS for fade animations -->
+<script>
+	import AOS from "aos";
+	import "aos/dist/aos.css";
+	AOS.init();
+</script>
 
 <Layout title="Pauper Colonia">
 	<Main>
 		<H1 text="Pauper Colonia" />
-		<div class="prose prose-2xl overflow-visible relative mb-20">
-			Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam
-			nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam
-			erat, sed diam voluptua. At vero eos et accusam et justo duo dolores
-			et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est
-			Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur
-			sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore
-			et dolore magna aliquyam erat, sed diam voluptua. At vero eos et
-			accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren,
-			no sea takimata sanctus est Lorem ipsum dolor sit amet.
+		<div
+			class="relative site-container z-20 w-full mx-auto mt-16 px-4 md:mt-18 lg:mt-20 xl:px-0"
+		>
+			<div class="md:flex md:items-start md:gap-10">
+				<div
+					class="prose prose-2xl overflow-visible relative mb-20 md:mb-0 md:w-2/3"
+				>
+					<h2
+						class="mb-4"
+						data-aos="fade-right"
+						data-aos-delay="300"
+						data-aos-duration="800"
+						data-aos-once="true"
+					>
+						<!-- <AnimatedText
+							content="Pauper opp Kölsch!"
+							delay={0.2}
+							duration={0.5}
+							stagger={0.08}
+							class="text-5xl text-pri leading-tight md:text-4xl lg:text-6xl font-brand"
+						/> -->
+						"Pauper opp Kölsch!"
+					</h2>
+					Wir sind eine Gruppe von passionierten Pauper Spielern, die sich
+					jeden Mittwoch im Vereinsheim von <a
+						href="https://cbg.cologne"
+						target="_blank"
+						rel="noopener noreferrer"
+					>
+						Card & Board Games Cologne e.V.
+					</a> in der Kölner Südstadt trifft um Pauper zu spielen. Je nach
+					Teilnehmerzahl sind es kleinere Turniere mit mindestens drei
+					Runden.
+					<br />
+					<br />
+					Für Vereinsmitglieder ist das Turnier frei, Nicht-Mitglieder
+					werden um eine Spende von 4 Euro gebeten.
+					<br />
+					<br />
+					Wir freuen uns, wenn die Pauper Community weiter wächst und wir
+					auch dich bei uns begrüßen dürfen!
+					<br />
+					<a
+						href="https://www.spicerack.gg/events/stores/8703"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="inline-block bg-white text-black border-2 border-black rounded-md px-2 py-1 hover:bg-gray-100 transition-colors"
+					>
+						Komm vorbei
+					</a>
+				</div>
+				<div
+					class="relative w-full mt-16 md:mt-0 md:w-1/3"
+					data-aos="fade-left"
+					data-aos-delay="300"
+					data-aos-duration="800"
+					data-aos-once="true"
+				>
+					<Image
+						src="/pccprimary.jpeg"
+						alt="Colonia Logo"
+						width={600}
+						height={600 / 1.5}
+						class="rounded-2xl shadow-xl mb-6 aspect-thumbnail object-cover"
+					/>
+				</div>
+			</div>
 		</div>
 	</Main>
 </Layout>
