@@ -6,7 +6,7 @@ content:
    label: Posts
    type: collection
    path: src/content/posts
-   filename: "{fields.slug}.md"
+   filename: "{fields.slug}.mdx"
    view:
      fields: [title, date] 
    fields:
