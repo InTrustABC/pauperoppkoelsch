@@ -3,7 +3,9 @@ content:
  - name: posts
    label: Posts
    type: collection
-   path: src/content/posts/
+   path: src/content/posts
+   view:
+     fields: [title, date] 
    fields:
     - { name: author, label: Author, type: string }
     - { name: date, label: Date, type: date }
