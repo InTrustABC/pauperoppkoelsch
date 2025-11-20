@@ -4,3 +4,8 @@
 @theme {
     --color-text: #000000;
 }
+
+
+img {
+    @apply rounded-2xl shadow-xl mb-6 object-cover;
+}

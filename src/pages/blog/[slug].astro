@@ -32,14 +32,28 @@ const { Content } = await post.render();
     <Main>
         <H1 text={post.data.title} />
         <Image
+            class="rounded-2xl shadow-xl mb-6 aspect-thumbnail object-cover"
             src={post.data.image}
             alt={post.data.title}
             width={1024}
             height={1024 / 1.5}
-            class="rounded-2xl shadow-xl mb-6 aspect-thumbnail object-cover"
         />
         <div class="prose prose-2xl overflow-visible relative mb-20">
             <Content />
+            xxx
         </div>
     </Main>
 </Layout>
+
+<!-- <style>
+    img {
+        border-radius: 1rem; /* rounded-2xl */
+        box-shadow:
+            0 20px 25px -5px rgba(0, 0, 0, 0.1),
+            0 8px 10px -6px rgba(0, 0, 0, 0.1); /* shadow-xl */
+        margin-bottom: 1.5rem; /* mb-6 */
+        aspect-ratio: 4 / 3; /* aspect-thumbnail (Tailwind's plugins often set this to 4:3) */
+        object-fit: cover; /* object-cover */
+        display: block; /* Often set with object-cover for better layout control */
+    }
+</style> -->

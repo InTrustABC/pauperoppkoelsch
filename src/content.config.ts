@@ -3,7 +3,7 @@ import { glob, file } from 'astro/loaders';
 const postsCollection = defineCollection({
     schema: ({ image }) => z.object({
         author: z.string(),
-        date: z.string(),
+        date: z.coerce.date(),
         image: image(),
         title: z.string(),
     })
