@@ -4,6 +4,7 @@ content:
    label: Posts
    type: collection
    path: src/content/posts
+   filename: "{fields.slug}.md"
    view:
      fields: [title, date] 
    fields:
@@ -13,4 +14,6 @@ content:
     - { name: image, label: Image, type: image }
     - { name: title, label: Title, type: string }
     - { name: body, label: Body, type: rich-text }
+    - { name: slug, label: Slug, type: string}
+
     
