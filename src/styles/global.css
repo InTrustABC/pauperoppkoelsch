@@ -3,6 +3,11 @@
 
 @theme {
     --color-text: #000000;
+    --color-background: #fce9f3;
+    --color-primary: #e5429b;
+    --color-secondary: #5A5353;
+    --color-accent: #fce9f3;
+
 }
 
 

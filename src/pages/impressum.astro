@@ -1,0 +1,44 @@
+---
+import H1 from "../components/H1.astro";
+import Main from "../components/Main.astro";
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="Impressum">
+    <Main class="mx-auto my-20">
+        <H1 text="Impressum" />
+        <div class="prose prose-2xl mt-8">
+            <h2>Angaben gemäß § 5 DDG</h2>
+            <p>
+                Marc Bosserhoff<br />
+                Albusweg 15<br />
+                51069 Köln<br />
+                Deutschland<br />
+            </p>
+            <h2>Kontakt</h2>
+            <p>
+                E-Mail: <a href="mailto:info@paupercolonia.com"
+                    >info@paupercolonia.com</a
+                >
+            </p>
+            <h2>Haftung für Inhalte</h2>
+            <p>
+                Die Inhalte unserer Seiten wurden mit größter Sorgfalt erstellt.
+                Für die Richtigkeit, Vollständigkeit und Aktualität der Inhalte
+                können wir jedoch keine Gewähr übernehmen.
+            </p>
+            <h2>Haftung für Links</h2>
+            <p>
+                Unser Angebot enthält Links zu externen Webseiten Dritter, auf
+                deren Inhalte wir keinen Einfluss haben. Deshalb können wir für
+                diese fremden Inhalte auch keine Gewähr übernehmen.
+            </p>
+            <h2>Urheberrecht</h2>
+            <p>
+                Die durch die Seitenbetreiber erstellten Inhalte und Werke auf
+                diesen Seiten unterliegen dem deutschen Urheberrecht. Beiträge
+                Dritter sind als solche gekennzeichnet.
+            </p>
+        </div>
+    </Main>
+</Layout>

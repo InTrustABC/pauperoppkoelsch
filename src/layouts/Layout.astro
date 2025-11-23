@@ -4,6 +4,7 @@ import favicon from "../assets/pccprimary.jpeg";
 import logowide from "../assets/pccwide.jpeg";
 import Header from "../components/Header.astro";
 import { ClientRouter } from "astro:transitions";
+import Footer from "../components/Footer.astro";
 
 interface Props {
 	title: string;
@@ -35,5 +36,6 @@ const {
 	<body class="min-h-screen">
 		<Header />
 		<slot />
+		<Footer />
 	</body>
 </html>

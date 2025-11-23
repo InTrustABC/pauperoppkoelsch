@@ -11,12 +11,15 @@ const posts = await getCollection("posts");
 <Layout title="Blog | Pauper Colonia">
     <Main>
         <H1 text="Blog | Pauper Colonia" />
-        {(<PostList posts={posts} />)}
+        <div class="blog-posts">
+            {(<PostList posts={posts} />)}
+        </div>
     </Main>
 </Layout>
 
+<!-- Apply selectively to images inside the blog posts wrapper so header/footer aren't affected -->
 <style is:global>
-    img {
+    .blog-posts img {
         aspect-ratio: 4 / 3;
         /* aspect-thumbnail (Tailwind's plugins often set this to 4:3) */
     }
