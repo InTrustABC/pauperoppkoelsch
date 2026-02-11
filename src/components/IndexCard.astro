@@ -1,0 +1,57 @@
+---
+import { Image } from "astro:assets";
+import H2 from "./H2.astro";
+
+type Props = {
+    image: ImageMetadata;
+    header: string;
+    description: string;
+    buttonText: string;
+    buttonLink: string;
+};
+
+const { image, header, description, buttonText, buttonLink } =
+    Astro.props as Props;
+---
+
+<article class="card">
+    <Image
+        src={image}
+        alt={header}
+        width={600}
+        height={600 / 1.5}
+        class="w-full max-w-[600px] rounded-2xl shadow-xl mb-6 aspect-3/2 object-cover"
+    />
+
+    <div class="card-body">
+        <H2 text={header} />
+        <p class="card-description">
+            {description}
+        </p>
+        <a
+            href={buttonLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-block bg-white text-black border-2 border-black rounded-md px-2 py-1 hover:bg-gray-100 transition-colors underline"
+        >
+            {buttonText}
+        </a>
+    </div>
+</article>
+
+<style>
+    .card {
+        display: flex;
+        flex-direction: column;
+        align-items: center; /* centers everything */
+    }
+
+    .card-body {
+        width: 100%;
+        max-width: 600px; /* matches image */
+    }
+
+    .card-description {
+        /* any text styling you like */
+    }
+</style>

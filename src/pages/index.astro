@@ -4,6 +4,9 @@ import H1 from "../components/H1.astro";
 import Main from "../components/Main.astro";
 import Layout from "../layouts/Layout.astro";
 import AnimatedText from "../components/ui/AnimatedText.astro";
+import IndexCard from "../components/IndexCard.astro";
+import spicerackImg from "../assets/spicerack_indexPage.JPG";
+import metaAndStandingsImg from "../assets/metaAndStandings_indexPage.JPEG";
 ---
 
 <!-- Initializing AOS for fade animations -->
@@ -58,14 +61,6 @@ import AnimatedText from "../components/ui/AnimatedText.astro";
 					Wir freuen uns, wenn die Pauper Community weiter wächst und wir
 					auch dich bei uns begrüßen dürfen!
 					<br />
-					<a
-						href="https://www.spicerack.gg/events/stores/8703"
-						target="_blank"
-						rel="noopener noreferrer"
-						class="inline-block bg-white text-black border-2 border-black rounded-md px-2 py-1 hover:bg-gray-100 transition-colors"
-					>
-						Komm vorbei
-					</a>
 				</div>
 				<div
 					class="relative w-full mt-16 md:mt-0 md:w-1/3"
@@ -80,6 +75,41 @@ import AnimatedText from "../components/ui/AnimatedText.astro";
 						width={600}
 						height={600 / 1.5}
 						class="rounded-2xl shadow-xl mb-6 aspect-thumbnail object-cover"
+					/>
+				</div>
+			</div>
+			<div
+				id="cardBlock"
+				class="flex flex-col md:flex-row gap-6 md:gap-8"
+			>
+				<div
+					class="mt-20"
+					data-aos="fade-right"
+					data-aos-delay="300"
+					data-aos-duration="800"
+					data-aos-once="true"
+				>
+					<IndexCard
+						image={spicerackImg}
+						header="Spicerack Anmeldung"
+						description="Meldet euch per Spicerack für unser Bi-Weekly im Vereinsheim von Card & Boardgames Cologne an. Wir freuen uns auf euch!"
+						buttonText="Komm vorbei"
+						buttonLink="https://www.spicerack.gg/events/stores/8703"
+					/>
+				</div>
+				<div
+					class="mt-20"
+					data-aos="fade-left"
+					data-aos-delay="300"
+					data-aos-duration="800"
+					data-aos-once="true"
+				>
+					<IndexCard
+						image={metaAndStandingsImg}
+						header="Meta & Standings"
+						description="Hier findest du die aktuellen Meta- und Standings-Informationen für Pauper."
+						buttonText="Zur Meta & Standings"
+						buttonLink="https://docs.google.com/spreadsheets/d/e/2PACX-1vSx8-lX9swWBHFUU42eK34IqGaEjLai4ZxhTW11l80ZR2fcMNQI1b9ncFbXVjyJ1l0DQQifGb1Xr5jp/pubhtml?gid=732179563&single=true"
 					/>
 				</div>
 			</div>
