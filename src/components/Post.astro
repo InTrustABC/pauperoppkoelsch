@@ -4,9 +4,10 @@ import { Image } from "astro:assets";
 
 type Props = {
     post: CollectionEntry<"posts">;
+    compact?: boolean;
 };
 
-const { post } = Astro.props;
+const { post, compact = false } = Astro.props;
 ---
 
 <article>
@@ -14,18 +15,26 @@ const { post } = Astro.props;
         <Image
             src={post.data.image}
             alt={post.data.title}
-            width={600}
-            height={600 / 1.5}
-            class="rounded-2xl shadow-xl mb-6 aspect-thumbnail object-cover"
+            width={compact ? 360 : 600}
+            height={(compact ? 360 : 600) / 1.5}
+            class={compact
+                ? "rounded-2xl shadow mb-4 aspect-thumbnail object-cover"
+                : "rounded-2xl shadow-xl mb-6 aspect-thumbnail object-cover"}
         />
     </a>
     <a
         href={`/blog/${post.slug}`}
-        class="text-4xl text-zinc-900 mb-4 font-semibold inline-block"
+        class={compact
+            ? "text-2xl text-zinc-900 mb-3 font-semibold inline-block"
+            : "text-4xl text-zinc-900 mb-4 font-semibold inline-block"}
     >
         <h2>{post.data.title}</h2>
     </a>
-    <p class="text-zinc-500 text-2xl line-clamp-2">
+    <p
+        class={compact
+            ? "text-zinc-500 text-lg line-clamp-3"
+            : "text-zinc-500 text-2xl line-clamp-2"}
+    >
         {post.body}
     </p>
 </article>

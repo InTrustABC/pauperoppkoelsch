@@ -2,7 +2,11 @@
   "extends": "astro/tsconfigs/base",
   "compilerOptions": {
     "strictNullChecks": true, // add if using `base` template
-    "allowJs": true // required, and included with all Astro templates
+    "allowJs": true, // required, and included with all Astro templates
+    "types": [
+      "astro/client",
+      "vite/client"
+    ]
   },
   "include": [
     ".astro/types.d.ts",

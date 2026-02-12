@@ -4,9 +4,18 @@ import H1 from "../components/H1.astro";
 import Main from "../components/Main.astro";
 import Layout from "../layouts/Layout.astro";
 import AnimatedText from "../components/ui/AnimatedText.astro";
+import pccprimaryImg from "../assets/pccprimary.jpeg";
 import IndexCard from "../components/IndexCard.astro";
 import spicerackImg from "../assets/spicerack_indexPage.JPG";
 import metaAndStandingsImg from "../assets/metaAndStandings_indexPage.JPEG";
+import PostList from "../components/PostList.astro";
+import { getCollection } from "astro:content";
+
+const allPosts = await getCollection("posts");
+const featuredPosts = allPosts
+	.filter((p) => Boolean(p.data.featured))
+	.sort((a, b) => +new Date(b.data.date) - +new Date(a.data.date))
+	.slice(0, 3);
 ---
 
 <!-- Initializing AOS for fade animations -->
@@ -50,12 +59,11 @@ import metaAndStandingsImg from "../assets/metaAndStandings_indexPage.JPEG";
 					>
 						Card & Board Games Cologne e.V.
 					</a> in der Kölner Südstadt trifft um Pauper zu spielen. Je nach
-					Teilnehmerzahl sind es kleinere Turniere mit mindestens drei
-					Runden.
+					Teilnehmerzahl sind es kleinere Turniere mit mindestens drei Runden.
 					<br />
 					<br />
-					Für Vereinsmitglieder ist das Turnier frei, Nicht-Mitglieder
-					werden um eine Spende von 4 Euro gebeten.
+					Für Vereinsmitglieder ist das Turnier frei, Nicht-Mitglieder werden
+					um eine Spende von 4 Euro gebeten.
 					<br />
 					<br />
 					Wir freuen uns, wenn die Pauper Community weiter wächst und wir
@@ -70,7 +78,7 @@ import metaAndStandingsImg from "../assets/metaAndStandings_indexPage.JPEG";
 					data-aos-once="true"
 				>
 					<Image
-						src="/pccprimary.jpeg"
+						src={pccprimaryImg}
 						alt="Colonia Logo"
 						width={600}
 						height={600 / 1.5}
@@ -78,41 +86,46 @@ import metaAndStandingsImg from "../assets/metaAndStandings_indexPage.JPEG";
 					/>
 				</div>
 			</div>
+		</div>
+		<div id="cardBlock" class="flex flex-col md:flex-row gap-6 md:gap-8">
 			<div
-				id="cardBlock"
-				class="flex flex-col md:flex-row gap-6 md:gap-8"
+				class="mt-20"
+				data-aos="fade-right"
+				data-aos-delay="300"
+				data-aos-duration="800"
+				data-aos-once="true"
 			>
-				<div
-					class="mt-20"
-					data-aos="fade-right"
-					data-aos-delay="300"
-					data-aos-duration="800"
-					data-aos-once="true"
-				>
-					<IndexCard
-						image={spicerackImg}
-						header="Spicerack Anmeldung"
-						description="Meldet euch per Spicerack für unser Bi-Weekly im Vereinsheim von Card & Boardgames Cologne an. Wir freuen uns auf euch!"
-						buttonText="Komm vorbei"
-						buttonLink="https://www.spicerack.gg/events/stores/8703"
-					/>
-				</div>
-				<div
-					class="mt-20"
-					data-aos="fade-left"
-					data-aos-delay="300"
-					data-aos-duration="800"
-					data-aos-once="true"
-				>
-					<IndexCard
-						image={metaAndStandingsImg}
-						header="Meta & Standings"
-						description="Hier findest du die aktuellen Meta- und Standings-Informationen für Pauper."
-						buttonText="Zur Meta & Standings"
-						buttonLink="https://docs.google.com/spreadsheets/d/e/2PACX-1vSx8-lX9swWBHFUU42eK34IqGaEjLai4ZxhTW11l80ZR2fcMNQI1b9ncFbXVjyJ1l0DQQifGb1Xr5jp/pubhtml?gid=732179563&single=true"
-					/>
-				</div>
+				<IndexCard
+					image={spicerackImg}
+					header="Spicerack Anmeldung"
+					description="Meldet euch per Spicerack für unser Bi-Weekly im Vereinsheim von Card & Boardgames Cologne an. Wir freuen uns auf euch!"
+					buttonText="Komm vorbei"
+					buttonLink="https://www.spicerack.gg/events/stores/8703"
+				/>
+			</div>
+			<div
+				class="mt-20"
+				data-aos="fade-left"
+				data-aos-delay="300"
+				data-aos-duration="800"
+				data-aos-once="true"
+			>
+				<IndexCard
+					image={metaAndStandingsImg}
+					header="Meta & Standings"
+					description="Hier findest du die aktuellen Meta- und Standings-Informationen für Pauper."
+					buttonText="Zur Meta & Standings"
+					buttonLink="https://docs.google.com/spreadsheets/d/e/2PACX-1vSx8-lX9swWBHFUU42eK34IqGaEjLai4ZxhTW11l80ZR2fcMNQI1b9ncFbXVjyJ1l0DQQifGb1Xr5jp/pubhtml?gid=732179563&single=true"
+				/>
 			</div>
 		</div>
+		{
+			featuredPosts.length ? (
+				<div class="mt-12 site-container bg-gray-100 rounded-xl p-8">
+					<h3 class="text-3xl mb-6">Featured</h3>
+					<PostList posts={featuredPosts} compact={true} />
+				</div>
+			) : null
+		}
 	</Main>
 </Layout>

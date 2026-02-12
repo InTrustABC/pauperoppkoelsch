@@ -5,13 +5,16 @@ import Post from "./Post.astro";
 
 type Props = {
     posts: CollectionEntry<"posts">[];
+    compact?: boolean;
 };
 
-const { posts } = Astro.props;
+const { posts, compact = false } = Astro.props;
 ---
 
 <div
-    class="grid grid-cols-2 gap-x-16 gap-y-32 max-md:grid-cols-1 max-sm:gap-y-14"
+    class={
+        `grid ${compact ? 'grid-cols-3 gap-x-8 gap-y-12 max-md:grid-cols-2' : 'grid-cols-2 gap-x-16 gap-y-32 max-md:grid-cols-1'} max-sm:gap-y-14`
+    }
 >
-    {posts.map((post) => <Post post={post} />)}
+    {posts.map((post) => <Post post={post} compact={compact} />)}
 </div>
