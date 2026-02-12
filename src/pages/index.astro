@@ -9,6 +9,7 @@ import IndexCard from "../components/IndexCard.astro";
 import spicerackImg from "../assets/spicerack_indexPage.JPG";
 import metaAndStandingsImg from "../assets/metaAndStandings_indexPage.JPEG";
 import PostList from "../components/PostList.astro";
+import FeaturedPostList from "../components/FeaturedPostList.astro";
 import { getCollection } from "astro:content";
 
 const allPosts = await getCollection("posts");
@@ -123,7 +124,7 @@ const featuredPosts = allPosts
 			featuredPosts.length ? (
 				<div class="mt-12 site-container bg-gray-100 rounded-xl p-8">
 					<h3 class="text-3xl mb-6">Featured</h3>
-					<PostList posts={featuredPosts} compact={true} />
+					<FeaturedPostList posts={featuredPosts} />
 				</div>
 			) : null
 		}
