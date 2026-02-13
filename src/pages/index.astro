@@ -90,11 +90,15 @@ const featuredPosts = allPosts
 				</div>
 			</div>
 		</div>
-		<div class="w-screen -ml-[calc((100vw-100%)/2)] bg-gray-100 py-6 mt-6">
-			<div class="text-center text-lg font-semibold text-gray-800">
-				Jeden zweiten Mittwoch ab 18:30 Uhr
-			</div>
+	</Main>
+
+	<div class="w-screen -ml-[calc((100vw-100%)/2)] bg-gray-100 py-6 mt-6">
+		<div class="text-center text-lg font-semibold text-gray-800">
+			Jeden zweiten Mittwoch ab 18:30 Uhr
 		</div>
+	</div>
+
+	<Main>
 		<div id="cardBlock" class="flex flex-col md:flex-row gap-6 md:gap-8">
 			<div
 				class="mt-20"
@@ -135,7 +139,7 @@ const featuredPosts = allPosts
 				</div>
 			) : null
 		}
-
-		<MapSection />
 	</Main>
+
+	<MapSection />
 </Layout>
