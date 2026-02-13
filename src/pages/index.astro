@@ -10,13 +10,15 @@ import spicerackImg from "../assets/spicerack_indexPage.JPG";
 import metaAndStandingsImg from "../assets/metaAndStandings_indexPage.JPEG";
 import PostList from "../components/PostList.astro";
 import FeaturedPostList from "../components/FeaturedPostList.astro";
+import MapSection from "../components/MapSection.astro";
 import { getCollection } from "astro:content";
 
+const MaxFeaturedPosts = 3;
 const allPosts = await getCollection("posts");
 const featuredPosts = allPosts
 	.filter((p) => Boolean(p.data.featured))
 	.sort((a, b) => +new Date(b.data.date) - +new Date(a.data.date))
-	.slice(0, 3);
+	.slice(0, MaxFeaturedPosts);
 ---
 
 <!-- Initializing AOS for fade animations -->
@@ -88,6 +90,11 @@ const featuredPosts = allPosts
 				</div>
 			</div>
 		</div>
+		<div class="w-screen -ml-[calc((100vw-100%)/2)] bg-gray-100 py-6 mt-6">
+			<div class="text-center text-lg font-semibold text-gray-800">
+				Jeden zweiten Mittwoch ab 18:30 Uhr
+			</div>
+		</div>
 		<div id="cardBlock" class="flex flex-col md:flex-row gap-6 md:gap-8">
 			<div
 				class="mt-20"
@@ -128,5 +135,7 @@ const featuredPosts = allPosts
 				</div>
 			) : null
 		}
+
+		<MapSection />
 	</Main>
 </Layout>
