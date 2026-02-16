@@ -1,0 +1,374 @@
+---
+// src/pages/meta/[tid].astro
+import Layout from "../../layouts/Layout.astro";
+import Main from "../../components/Main.astro";
+import H1 from "../../components/H1.astro";
+
+interface Player {
+    name: string;
+    decklist: string;
+    winsSwiss: number;
+    lossesSwiss: number;
+    draws: number;
+    winsBracket: number;
+    lossesBracket: number;
+    decklist_text?: string;
+}
+
+interface Tournament {
+    TID: string;
+    tournamentName: string;
+    format: string;
+    bracketUrl: string;
+    players: number;
+    startDate: number;
+    swissRounds: number;
+    topCut: number;
+    standings: Player[];
+}
+
+export async function getStaticPaths() {
+    try {
+        const baseUrl = "https://api.spicerack.gg";
+        const response = await fetch(
+            `${baseUrl}/api/export-decklists/?num_days=90&event_format=Pauper&organization_id=8703`,
+            {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            },
+        );
+
+        if (!response.ok) {
+            return [];
+        }
+
+        const tournaments: Tournament[] = await response.json();
+        return tournaments.map((tournament) => ({
+            params: { tid: tournament.TID },
+            props: { tournament },
+        }));
+    } catch (err) {
+        console.error("Error fetching tournaments for static paths:", err);
+        return [];
+    }
+}
+
+interface Props {
+    tournament: Tournament;
+}
+
+const { tournament } = Astro.props;
+
+// Helper function to calculate win percentage
+function getWinPercentage(wins: number, losses: number, draws: number): string {
+    const total = wins + losses + draws;
+    if (total === 0) return "0.00%";
+    const percentage = ((wins + draws * 0.5) / total) * 100;
+    return percentage.toFixed(2) + "%";
+}
+---
+
+<Layout title={`${tournament.tournamentName} | Pauper Colonia`}>
+    <Main>
+        <div class="tournament-header">
+            <div>
+                <H1 text={tournament.tournamentName} />
+                <div class="tournament-meta">
+                    <span class="meta-item">
+                        <strong>Format:</strong>
+                        {tournament.format}
+                    </span>
+                    <span class="meta-item">
+                        <strong>Players:</strong>
+                        {tournament.players}
+                    </span>
+                    <span class="meta-item">
+                        <strong>Date:</strong>{" "}
+                        {
+                            new Date(
+                                tournament.startDate * 1000,
+                            ).toLocaleDateString()
+                        }
+                    </span>
+                    <span class="meta-item">
+                        <strong>Swiss Rounds:</strong>
+                        {tournament.swissRounds}
+                    </span>
+                    {
+                        tournament.topCut > 0 && (
+                            <span class="meta-item">
+                                <strong>Top Cut:</strong> {tournament.topCut}
+                            </span>
+                        )
+                    }
+                </div>
+            </div>
+            <a
+                href={tournament.bracketUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="bracket-btn"
+            >
+                View Bracket ↗
+            </a>
+        </div>
+
+        <div class="standings-section">
+            <h2>Players</h2>
+            <div class="table-responsive">
+                <table class="standings-table">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Player</th>
+                            <th>W-L-D</th>
+                            <th>Win %</th>
+                            <th>Record</th>
+                            <th>Decklist</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {
+                            tournament.standings.map((player, index) => {
+                                const totalGames =
+                                    player.winsSwiss +
+                                    player.lossesSwiss +
+                                    player.draws;
+                                const winPercentage = getWinPercentage(
+                                    player.winsSwiss,
+                                    player.lossesSwiss,
+                                    player.draws,
+                                );
+
+                                return (
+                                    <tr>
+                                        <td class="rank">{index + 1}</td>
+                                        <td class="player-name">
+                                            {player.name}
+                                        </td>
+                                        <td class="record">
+                                            {`${player.winsSwiss}-${player.lossesSwiss}-${player.draws}`}
+                                        </td>
+                                        <td class="win-percent">
+                                            {winPercentage}
+                                        </td>
+                                        <td class="bracket-record">
+                                            {player.winsBracket > 0 ||
+                                            player.lossesBracket > 0 ? (
+                                                `${player.winsBracket}-${player.lossesBracket}`
+                                            ) : (
+                                                <span class="swiss-only">
+                                                    Swiss
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td class="decklist-cell">
+                                            {player.decklist ? (
+                                                <a
+                                                    href={player.decklist}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    class="decklist-link"
+                                                >
+                                                    View ↗
+                                                </a>
+                                            ) : (
+                                                <span class="no-decklist">
+                                                    —
+                                                </span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="back-link">
+            <a href="/metaAndStandings">← Back to Tournaments</a>
+        </div>
+    </Main>
+</Layout>
+
+<style>
+    .tournament-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 2rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+    }
+
+    .tournament-header > div {
+        flex: 1;
+        min-width: 300px;
+    }
+
+    .tournament-meta {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+        font-size: 0.95rem;
+        color: #666;
+    }
+
+    .meta-item {
+        display: inline-block;
+    }
+
+    .bracket-btn {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.75rem 1.5rem;
+        background-color: #0066cc;
+        color: white;
+        text-decoration: none;
+        border-radius: 0.5rem;
+        font-weight: 500;
+        transition: background-color 0.3s ease;
+        white-space: nowrap;
+    }
+
+    .bracket-btn:hover {
+        background-color: #0052a3;
+    }
+
+    .standings-section {
+        margin: 2rem 0;
+    }
+
+    .standings-section h2 {
+        margin-bottom: 1rem;
+    }
+
+    .table-responsive {
+        overflow-x: auto;
+    }
+
+    .standings-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.95rem;
+    }
+
+    .standings-table thead {
+        background-color: #f5f5f5;
+        border-bottom: 2px solid #ddd;
+    }
+
+    .standings-table th {
+        padding: 0.75rem;
+        text-align: left;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .standings-table td {
+        padding: 0.75rem;
+        border-bottom: 1px solid #eee;
+    }
+
+    .standings-table tbody tr:hover {
+        background-color: #fafafa;
+    }
+
+    .rank {
+        font-weight: 600;
+        text-align: center;
+        width: 60px;
+    }
+
+    .player-name {
+        font-weight: 500;
+    }
+
+    .record {
+        text-align: center;
+        font-family: monospace;
+    }
+
+    .win-percent {
+        text-align: center;
+        font-family: monospace;
+    }
+
+    .bracket-record {
+        text-align: center;
+        font-family: monospace;
+    }
+
+    .swiss-only {
+        color: #999;
+        font-size: 0.85em;
+    }
+
+    .decklist-cell {
+        text-align: center;
+    }
+
+    .decklist-link {
+        color: #0066cc;
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .decklist-link:hover {
+        text-decoration: underline;
+    }
+
+    .no-decklist {
+        color: #ccc;
+    }
+
+    .back-link {
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid #eee;
+    }
+
+    .back-link a {
+        color: #0066cc;
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .back-link a:hover {
+        text-decoration: underline;
+    }
+
+    .loading-message {
+        background-color: #f0f0f0;
+        border-radius: 0.5rem;
+        padding: 2rem;
+        text-align: center;
+        color: #666;
+    }
+
+    @media (max-width: 640px) {
+        .tournament-header {
+            flex-direction: column;
+        }
+
+        .tournament-meta {
+            font-size: 0.85rem;
+        }
+
+        .standings-table th,
+        .standings-table td {
+            padding: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .bracket-btn {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>

@@ -1,0 +1,190 @@
+---
+// src/pages/metaAndStandings.astro
+import Layout from "../layouts/Layout.astro";
+import Main from "../components/Main.astro";
+import H1 from "../components/H1.astro";
+
+interface Player {
+    name: string;
+    decklist: string;
+    winsSwiss: number;
+    lossesSwiss: number;
+    draws: number;
+    winsBracket: number;
+    lossesBracket: number;
+    decklist_text?: string;
+}
+
+interface Tournament {
+    TID: string;
+    tournamentName: string;
+    format: string;
+    bracketUrl: string;
+    players: number;
+    startDate: number;
+    swissRounds: number;
+    topCut: number;
+    standings: Player[];
+}
+
+let tournaments: Tournament[] = [];
+let error: string | null = null;
+
+try {
+    const baseUrl = "https://api.spicerack.gg";
+    const response = await fetch(
+        `${baseUrl}/api/export-decklists/?num_days=90&event_format=Pauper&organization_id=8703`,
+        {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+            },
+        },
+    );
+
+    if (!response.ok) {
+        error = `Failed to fetch tournaments: ${response.status} ${response.statusText}`;
+    } else {
+        const data: Tournament[] = await response.json();
+        // Sort tournaments by start date (newest first)
+        tournaments = data.sort((a, b) => b.startDate - a.startDate);
+    }
+} catch (err) {
+    error = `Error fetching tournaments: ${err instanceof Error ? err.message : "Unknown error"}`;
+}
+---
+
+<Layout title="Meta & Standings | Pauper Colonia">
+    <Main>
+        <H1 text="Tournament Standings (90 Tage)" />
+
+        {
+            error ? (
+                <div class="error-message">
+                    <p>{error}</p>
+                </div>
+            ) : tournaments.length > 0 ? (
+                <div class="tournaments-container">
+                    {tournaments.map((tournament) => (
+                        <div class="tournament-card-wrapper">
+                            <a
+                                href={`/meta/${tournament.TID}`}
+                                class="tournament-card-link"
+                            >
+                                <div class="tournament-card">
+                                    <h2>{tournament.tournamentName}</h2>
+                                    <div class="tournament-info">
+                                        <p>
+                                            <strong>Format:</strong>{" "}
+                                            {tournament.format}
+                                        </p>
+                                        <p>
+                                            <strong>Players:</strong>{" "}
+                                            {tournament.players}
+                                        </p>
+                                        <p>
+                                            <strong>Swiss Rounds:</strong>{" "}
+                                            {tournament.swissRounds}
+                                        </p>
+                                        {tournament.topCut > 0 && (
+                                            <p>
+                                                <strong>Top Cut:</strong>{" "}
+                                                {tournament.topCut}
+                                            </p>
+                                        )}
+                                        <p>
+                                            <strong>Date:</strong>{" "}
+                                            {new Date(
+                                                tournament.startDate * 1000,
+                                            ).toLocaleDateString("de-DE")}
+                                        </p>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <div class="loading-message">
+                    <p>Loading tournaments...</p>
+                </div>
+            )
+        }
+    </Main>
+</Layout>
+
+<style>
+    .error-message {
+        background-color: #fee;
+        border: 1px solid #fcc;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin: 1rem 0;
+        color: #c33;
+    }
+
+    .error-message p {
+        margin: 0.5rem 0;
+    }
+
+    .tournaments-container {
+        display: grid;
+        gap: 1.5rem;
+        margin: 2rem 0;
+    }
+
+    .tournament-card-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .tournament-card-link {
+        text-decoration: none;
+        color: inherit;
+        display: block;
+    }
+
+    .tournament-card {
+        border: 1px solid #ddd;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        background-color: #fafafa;
+        transition: all 0.3s ease;
+    }
+
+    .tournament-card-link:hover .tournament-card {
+        border-color: #999;
+        background-color: #f5f5f5;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .tournament-card h2 {
+        margin: 0 0 1rem 0;
+        color: inherit;
+    }
+
+    .tournament-card-link:hover .tournament-card h2 {
+        color: #0066cc;
+    }
+
+    .tournament-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .tournament-info p {
+        margin: 0;
+        font-size: 0.95rem;
+    }
+
+    .loading-message {
+        background-color: #f0f0f0;
+        border-radius: 0.5rem;
+        padding: 2rem;
+        text-align: center;
+        color: #666;
+    }
+</style>
