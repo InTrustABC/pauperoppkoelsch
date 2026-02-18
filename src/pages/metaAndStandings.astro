@@ -79,11 +79,11 @@ try {
                                             {tournament.format}
                                         </p>
                                         <p>
-                                            <strong>Players:</strong>{" "}
+                                            <strong>Spieler:</strong>{" "}
                                             {tournament.players}
                                         </p>
                                         <p>
-                                            <strong>Swiss Rounds:</strong>{" "}
+                                            <strong>Runden:</strong>{" "}
                                             {tournament.swissRounds}
                                         </p>
                                         {tournament.topCut > 0 && (
@@ -93,7 +93,7 @@ try {
                                             </p>
                                         )}
                                         <p>
-                                            <strong>Date:</strong>{" "}
+                                            <strong>Datum:</strong>{" "}
                                             {new Date(
                                                 tournament.startDate * 1000,
                                             ).toLocaleDateString("de-DE")}

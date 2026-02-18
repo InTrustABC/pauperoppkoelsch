@@ -81,11 +81,11 @@ function getWinPercentage(wins: number, losses: number, draws: number): string {
                         {tournament.format}
                     </span>
                     <span class="meta-item">
-                        <strong>Players:</strong>
+                        <strong>Spieler:</strong>
                         {tournament.players}
                     </span>
                     <span class="meta-item">
-                        <strong>Date:</strong>{" "}
+                        <strong>Datum:</strong>{" "}
                         {
                             new Date(
                                 tournament.startDate * 1000,
@@ -93,7 +93,7 @@ function getWinPercentage(wins: number, losses: number, draws: number): string {
                         }
                     </span>
                     <span class="meta-item">
-                        <strong>Swiss Rounds:</strong>
+                        <strong>Runden:</strong>
                         {tournament.swissRounds}
                     </span>
                     {
@@ -116,13 +116,13 @@ function getWinPercentage(wins: number, losses: number, draws: number): string {
         </div>
 
         <div class="standings-section">
-            <h2>Players</h2>
+            <h2>Spieler</h2>
             <div class="table-responsive">
                 <table class="standings-table">
                     <thead>
                         <tr>
                             <th>Rank</th>
-                            <th>Player</th>
+                            <th>Spieler</th>
                             <th>W-L-D</th>
                             <th>Win %</th>
                             <th>Record</th>
@@ -190,7 +190,7 @@ function getWinPercentage(wins: number, losses: number, draws: number): string {
         </div>
 
         <div class="back-link">
-            <a href="/metaAndStandings">← Back to Tournaments</a>
+            <a href="/metaAndStandings">← Zurück zu den Turnieren</a>
         </div>
     </Main>
 </Layout>
