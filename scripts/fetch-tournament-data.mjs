@@ -84,6 +84,21 @@ async function ensureTables() {
     )
   `;
 
+    await sql`
+    CREATE TABLE IF NOT EXISTS player_rankings (
+      player_name TEXT PRIMARY KEY,
+      tournaments_played INTEGER NOT NULL DEFAULT 0,
+      total_wins INTEGER NOT NULL DEFAULT 0,
+      total_losses INTEGER NOT NULL DEFAULT 0,
+      total_draws INTEGER NOT NULL DEFAULT 0,
+      total_games INTEGER NOT NULL DEFAULT 0,
+      points INTEGER NOT NULL DEFAULT 0,
+      win_rate REAL NOT NULL DEFAULT 0,
+      points_per_game REAL NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
     await sql`CREATE INDEX IF NOT EXISTS idx_tournaments_start_date ON tournaments(start_date DESC)`;
     await sql`CREATE INDEX IF NOT EXISTS idx_player_stats_tid ON player_stats(tid)`;
     await sql`CREATE INDEX IF NOT EXISTS idx_meta_snapshots_date ON meta_snapshots(snapshot_date DESC)`;
@@ -403,12 +418,53 @@ async function main() {
         }
 
         console.log(`\n🎉 Done! Stored ${stored}/${tournamentsToFetch.length} tournaments (${tournaments.length - tournamentsToFetch.length} skipped).`);
+
+        // Refresh the player_rankings table
+        console.log("\n📊 Refreshing player rankings...");
+        await refreshPlayerRankings();
+        console.log("✅ Player rankings refreshed.");
     } catch (err) {
         console.error("❌ Fatal error:", err);
         process.exit(1);
     } finally {
         await sql.end();
     }
+}
+
+/**
+ * Recompute the player_rankings table from player_stats.
+ * 1 win = 3 pts, 1 draw = 1 pt, 1 loss = 0 pts.
+ */
+async function refreshPlayerRankings() {
+    await sql`DELETE FROM player_rankings`;
+    await sql`
+    INSERT INTO player_rankings (
+      player_name, tournaments_played,
+      total_wins, total_losses, total_draws, total_games,
+      points, win_rate, points_per_game, updated_at
+    )
+    SELECT
+      ps.player_name,
+      COUNT(DISTINCT ps.tid)::int AS tournaments_played,
+      SUM(ps.wins_swiss)::int AS total_wins,
+      SUM(ps.losses_swiss)::int AS total_losses,
+      SUM(ps.draws)::int AS total_draws,
+      (SUM(ps.wins_swiss) + SUM(ps.losses_swiss) + SUM(ps.draws))::int AS total_games,
+      (SUM(ps.wins_swiss) * 3 + SUM(ps.draws))::int AS points,
+      ROUND(
+        SUM(ps.wins_swiss)::numeric /
+        NULLIF(SUM(ps.wins_swiss) + SUM(ps.losses_swiss) + SUM(ps.draws), 0) * 100,
+        2
+      )::float AS win_rate,
+      ROUND(
+        (SUM(ps.wins_swiss) * 3 + SUM(ps.draws))::numeric /
+        NULLIF(SUM(ps.wins_swiss) + SUM(ps.losses_swiss) + SUM(ps.draws), 0),
+        2
+      )::float AS points_per_game,
+      NOW()
+    FROM player_stats ps
+    GROUP BY ps.player_name
+  `;
 }
 
 main();

@@ -61,6 +61,19 @@ export interface MetaSnapshot {
   created_at?: string;
 }
 
+export interface PlayerRanking {
+  player_name: string;
+  tournaments_played: number;
+  total_wins: number;
+  total_losses: number;
+  total_draws: number;
+  total_games: number;
+  points: number;
+  win_rate: number;
+  points_per_game: number;
+  updated_at?: string;
+}
+
 // Combined type for display (matches the old API shape)
 export interface TournamentWithStandings extends Tournament {
   standings: PlayerStanding[];
@@ -124,6 +137,21 @@ export async function initializeDatabase() {
       player_count INTEGER NOT NULL DEFAULT 0,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(tid, deck_archetype)
+    )
+  `;
+
+  await db`
+    CREATE TABLE IF NOT EXISTS player_rankings (
+      player_name TEXT PRIMARY KEY,
+      tournaments_played INTEGER NOT NULL DEFAULT 0,
+      total_wins INTEGER NOT NULL DEFAULT 0,
+      total_losses INTEGER NOT NULL DEFAULT 0,
+      total_draws INTEGER NOT NULL DEFAULT 0,
+      total_games INTEGER NOT NULL DEFAULT 0,
+      points INTEGER NOT NULL DEFAULT 0,
+      win_rate REAL NOT NULL DEFAULT 0,
+      points_per_game REAL NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
 
@@ -250,6 +278,45 @@ export async function getTournamentWithStandings(tid: string): Promise<Tournamen
     ...tournament,
     standings,
   };
+}
+
+/**
+ * Recompute the player_rankings table from player_stats.
+ * 1 win = 3 points, 1 draw = 1 point, 1 loss = 0 points.
+ */
+export async function refreshPlayerRankings() {
+  const db = getDb();
+  await db`
+    DELETE FROM player_rankings
+  `;
+  await db`
+    INSERT INTO player_rankings (
+      player_name, tournaments_played,
+      total_wins, total_losses, total_draws, total_games,
+      points, win_rate, points_per_game, updated_at
+    )
+    SELECT
+      ps.player_name,
+      COUNT(DISTINCT ps.tid)::int AS tournaments_played,
+      SUM(ps.wins_swiss)::int AS total_wins,
+      SUM(ps.losses_swiss)::int AS total_losses,
+      SUM(ps.draws)::int AS total_draws,
+      (SUM(ps.wins_swiss) + SUM(ps.losses_swiss) + SUM(ps.draws))::int AS total_games,
+      (SUM(ps.wins_swiss) * 3 + SUM(ps.draws))::int AS points,
+      ROUND(
+        SUM(ps.wins_swiss)::numeric /
+        NULLIF(SUM(ps.wins_swiss) + SUM(ps.losses_swiss) + SUM(ps.draws), 0) * 100,
+        2
+      )::float AS win_rate,
+      ROUND(
+        (SUM(ps.wins_swiss) * 3 + SUM(ps.draws))::numeric /
+        NULLIF(SUM(ps.wins_swiss) + SUM(ps.losses_swiss) + SUM(ps.draws), 0),
+        2
+      )::float AS points_per_game,
+      NOW()
+    FROM player_stats ps
+    GROUP BY ps.player_name
+  `;
 }
 
 export async function getMetaSnapshotsByDateRange(
