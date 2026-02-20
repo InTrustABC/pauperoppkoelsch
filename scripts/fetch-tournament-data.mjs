@@ -22,7 +22,7 @@ import postgres from "postgres";
 const DATABASE_URL = process.env.DATABASE_URL;
 const SPICERACK_API_KEY = process.env.SPICERACK_API_KEY;
 const API_BASE = "https://api.spicerack.gg";
-const NUM_DAYS = 180; // Fetch 180 days to keep a good history window
+const NUM_DAYS = 360; // Fetch 360 days to keep a good history window
 
 if (!DATABASE_URL) {
     console.error("❌ DATABASE_URL is not set");
