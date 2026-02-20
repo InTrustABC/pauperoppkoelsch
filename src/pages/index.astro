@@ -1,4 +1,6 @@
 ---
+export const prerender = true;
+
 import { Image } from "astro:assets";
 import H1 from "../components/H1.astro";
 import Main from "../components/Main.astro";
@@ -127,7 +129,7 @@ const featuredPosts = allPosts
 					header="Meta & Standings"
 					description="Hier findest du die aktuellen Meta- und Standings-Informationen für Pauper."
 					buttonText="Zur Meta & Standings"
-					buttonLink="https://docs.google.com/spreadsheets/d/e/2PACX-1vSx8-lX9swWBHFUU42eK34IqGaEjLai4ZxhTW11l80ZR2fcMNQI1b9ncFbXVjyJ1l0DQQifGb1Xr5jp/pubhtml?gid=732179563&single=true"
+					buttonLink="/standings"
 				/>
 			</div>
 		</div>
@@ -140,6 +142,5 @@ const featuredPosts = allPosts
 			) : null
 		}
 	</Main>
-
 	<MapSection />
 </Layout>

@@ -1,65 +1,21 @@
 ---
-// src/pages/meta/[tid].astro
+// src/pages/standings/[tid].astro
 import Layout from "../../layouts/Layout.astro";
 import Main from "../../components/Main.astro";
 import H1 from "../../components/H1.astro";
+import { getTournamentWithStandings } from "../../lib/db";
 
-interface Player {
-    name: string;
-    decklist: string;
-    winsSwiss: number;
-    lossesSwiss: number;
-    draws: number;
-    winsBracket: number;
-    lossesBracket: number;
-    decklist_text?: string;
+const { tid } = Astro.params;
+
+if (!tid) {
+    return Astro.redirect("/standings");
 }
 
-interface Tournament {
-    TID: string;
-    tournamentName: string;
-    format: string;
-    bracketUrl: string;
-    players: number;
-    startDate: number;
-    swissRounds: number;
-    topCut: number;
-    standings: Player[];
+const tournament = await getTournamentWithStandings(tid);
+
+if (!tournament) {
+    return Astro.redirect("/standings");
 }
-
-export async function getStaticPaths() {
-    try {
-        const baseUrl = "https://api.spicerack.gg";
-        const response = await fetch(
-            `${baseUrl}/api/export-decklists/?num_days=90&event_format=Pauper&organization_id=8703`,
-            {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-            },
-        );
-
-        if (!response.ok) {
-            return [];
-        }
-
-        const tournaments: Tournament[] = await response.json();
-        return tournaments.map((tournament) => ({
-            params: { tid: tournament.TID },
-            props: { tournament },
-        }));
-    } catch (err) {
-        console.error("Error fetching tournaments for static paths:", err);
-        return [];
-    }
-}
-
-interface Props {
-    tournament: Tournament;
-}
-
-const { tournament } = Astro.props;
 
 // Helper function to calculate win percentage
 function getWinPercentage(wins: number, losses: number, draws: number): string {
@@ -70,11 +26,11 @@ function getWinPercentage(wins: number, losses: number, draws: number): string {
 }
 ---
 
-<Layout title={`${tournament.tournamentName} | Pauper Colonia`}>
+<Layout title={`${tournament.tournament_name} | Pauper Colonia`}>
     <Main>
         <div class="tournament-header">
             <div>
-                <H1 text={tournament.tournamentName} />
+                <H1 text={tournament.tournament_name} />
                 <div class="tournament-meta">
                     <span class="meta-item">
                         <strong>Format:</strong>
@@ -88,25 +44,25 @@ function getWinPercentage(wins: number, losses: number, draws: number): string {
                         <strong>Datum:</strong>{" "}
                         {
                             new Date(
-                                tournament.startDate * 1000,
+                                tournament.start_date * 1000,
                             ).toLocaleDateString("de-DE")
                         }
                     </span>
                     <span class="meta-item">
                         <strong>Runden:</strong>
-                        {tournament.swissRounds}
+                        {tournament.swiss_rounds}
                     </span>
                     {
-                        tournament.topCut > 0 && (
+                        tournament.top_cut > 0 && (
                             <span class="meta-item">
-                                <strong>Top Cut:</strong> {tournament.topCut}
+                                <strong>Top Cut:</strong> {tournament.top_cut}
                             </span>
                         )
                     }
                 </div>
             </div>
             <a
-                href={tournament.bracketUrl}
+                href={tournament.bracket_url}
                 target="_blank"
                 rel="noopener noreferrer"
                 class="bracket-btn"
@@ -190,7 +146,7 @@ function getWinPercentage(wins: number, losses: number, draws: number): string {
         </div>
 
         <div class="back-link">
-            <a href="/metaAndStandings">← Zurück zu den Turnieren</a>
+            <a href="/standings">← Zurück zu den Turnieren</a>
         </div>
     </Main>
 </Layout>

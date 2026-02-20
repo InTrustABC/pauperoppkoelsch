@@ -1,0 +1,135 @@
+---
+/**
+ * PlayerRankingChart — Horizontal bar chart showing top players by win rate.
+ */
+interface Props {
+    data: {
+        player_name: string;
+        win_rate: number;
+        tournaments_played: number;
+        total_wins: number;
+        total_losses: number;
+        total_draws: number;
+    }[];
+    title?: string;
+    maxPlayers?: number;
+}
+
+const { data, title = "Spieler Ranking", maxPlayers = 15 } = Astro.props;
+
+const top = data.slice(0, maxPlayers);
+
+const chartData = JSON.stringify({
+    labels: top.map((p) => p.player_name),
+    winRates: top.map((p) => p.win_rate),
+    records: top.map(
+        (p) =>
+            `${p.total_wins}W-${p.total_losses}L-${p.total_draws}D (${p.tournaments_played} Turniere)`,
+    ),
+});
+---
+
+<div class="chart-container">
+    <h3 class="chart-title">{title}</h3>
+    <canvas
+        id="playerRankingChart"
+        data-chart={chartData}
+        width="600"
+        height="400"></canvas>
+</div>
+
+<script>
+    import {
+        Chart,
+        BarController,
+        BarElement,
+        CategoryScale,
+        LinearScale,
+        Tooltip,
+        Legend,
+    } from "chart.js";
+    Chart.register(
+        BarController,
+        BarElement,
+        CategoryScale,
+        LinearScale,
+        Tooltip,
+        Legend,
+    );
+
+    document.addEventListener("astro:page-load", () => {
+        const canvas = document.getElementById(
+            "playerRankingChart",
+        ) as HTMLCanvasElement;
+        if (!canvas) return;
+
+        const existing = Chart.getChart(canvas);
+        if (existing) existing.destroy();
+
+        const parsed = JSON.parse(canvas.dataset.chart!);
+
+        new Chart(canvas, {
+            type: "bar",
+            data: {
+                labels: parsed.labels,
+                datasets: [
+                    {
+                        label: "Win Rate %",
+                        data: parsed.winRates,
+                        backgroundColor: parsed.winRates.map((r: number) =>
+                            r >= 70
+                                ? "#10b981"
+                                : r >= 55
+                                  ? "#3b82f6"
+                                  : r >= 45
+                                    ? "#f59e0b"
+                                    : "#ef4444",
+                        ),
+                        borderWidth: 1,
+                        borderColor: "#fff",
+                        borderRadius: 4,
+                    },
+                ],
+            },
+            options: {
+                indexAxis: "y",
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: { display: true, text: "Win Rate %" },
+                    },
+                    y: {
+                        ticks: { font: { size: 11 } },
+                    },
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            afterLabel: (ctx) => parsed.records[ctx.dataIndex],
+                        },
+                    },
+                },
+            },
+        });
+    });
+</script>
+
+<style>
+    .chart-container {
+        position: relative;
+        width: 100%;
+        max-width: 700px;
+        height: 450px;
+        margin: 0 auto;
+    }
+    .chart-title {
+        text-align: center;
+        margin-bottom: 0.5rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+</style>

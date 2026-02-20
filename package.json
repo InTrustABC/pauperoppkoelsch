@@ -9,13 +9,17 @@
     "astro": "astro"
   },
   "dependencies": {
+    "@astrojs/check": "^0.9.6",
     "@astrojs/mdx": "^4.3.10",
+    "@astrojs/netlify": "^6.6.4",
     "@tailwindcss/vite": "^4.1.17",
     "aos": "^2.3.4",
     "astro": "^5.15.8",
     "chart.js": "^4.4.0",
     "motion": "^12.23.24",
-    "tailwindcss": "^4.1.17"
+    "postgres": "^3.4.8",
+    "tailwindcss": "^4.1.17",
+    "typescript": "^5.9.3"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.19"

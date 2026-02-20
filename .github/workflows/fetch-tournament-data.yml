@@ -1,0 +1,30 @@
+name: Fetch Tournament Data
+
+on:
+  schedule:
+    # Runs daily at 06:00 UTC
+    - cron: "0 6 * * *"
+  workflow_dispatch: # Allow manual trigger
+
+env:
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  SPICERACK_API_KEY: ${{ secrets.SPICERACK_API_KEY }}
+
+jobs:
+  fetch-and-store:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run fetch script
+        run: node scripts/fetch-tournament-data.mjs

@@ -1,56 +1,18 @@
 ---
-// src/pages/metaAndStandings.astro
-import Layout from "../layouts/Layout.astro";
-import Main from "../components/Main.astro";
-import H1 from "../components/H1.astro";
-
-interface Player {
-    name: string;
-    decklist: string;
-    winsSwiss: number;
-    lossesSwiss: number;
-    draws: number;
-    winsBracket: number;
-    lossesBracket: number;
-    decklist_text?: string;
-}
-
-interface Tournament {
-    TID: string;
-    tournamentName: string;
-    format: string;
-    bracketUrl: string;
-    players: number;
-    startDate: number;
-    swissRounds: number;
-    topCut: number;
-    standings: Player[];
-}
+// src/pages/standings/index.astro
+// SSR page — fetches tournament list from the database.
+import Layout from "../../layouts/Layout.astro";
+import Main from "../../components/Main.astro";
+import H1 from "../../components/H1.astro";
+import { getAllTournaments, type Tournament } from "../../lib/db";
 
 let tournaments: Tournament[] = [];
 let error: string | null = null;
 
 try {
-    const baseUrl = "https://api.spicerack.gg";
-    const response = await fetch(
-        `${baseUrl}/api/export-decklists/?num_days=90&event_format=Pauper&organization_id=8703`,
-        {
-            method: "GET",
-            headers: {
-                "Content-Type": "application/json",
-            },
-        },
-    );
-
-    if (!response.ok) {
-        error = `Failed to fetch tournaments: ${response.status} ${response.statusText}`;
-    } else {
-        const data: Tournament[] = await response.json();
-        // Sort tournaments by start date (newest first)
-        tournaments = data.sort((a, b) => b.startDate - a.startDate);
-    }
+    tournaments = await getAllTournaments(90);
 } catch (err) {
-    error = `Error fetching tournaments: ${err instanceof Error ? err.message : "Unknown error"}`;
+    error = `Turniere konnten nicht geladen werden: ${err instanceof Error ? err.message : "Unbekannter Fehler"}`;
 }
 ---
 
@@ -68,11 +30,11 @@ try {
                     {tournaments.map((tournament) => (
                         <div class="tournament-card-wrapper">
                             <a
-                                href={`/meta/${tournament.TID}`}
+                                href={`/standings/${tournament.tid}`}
                                 class="tournament-card-link"
                             >
                                 <div class="tournament-card">
-                                    <h2>{tournament.tournamentName}</h2>
+                                    <h2>{tournament.tournament_name}</h2>
                                     <div class="tournament-info">
                                         <p>
                                             <strong>Format:</strong>{" "}
@@ -84,18 +46,18 @@ try {
                                         </p>
                                         <p>
                                             <strong>Runden:</strong>{" "}
-                                            {tournament.swissRounds}
+                                            {tournament.swiss_rounds}
                                         </p>
-                                        {tournament.topCut > 0 && (
+                                        {tournament.top_cut > 0 && (
                                             <p>
                                                 <strong>Top Cut:</strong>{" "}
-                                                {tournament.topCut}
+                                                {tournament.top_cut}
                                             </p>
                                         )}
                                         <p>
                                             <strong>Datum:</strong>{" "}
                                             {new Date(
-                                                tournament.startDate * 1000,
+                                                tournament.start_date * 1000,
                                             ).toLocaleDateString("de-DE")}
                                         </p>
                                     </div>

@@ -1,0 +1,145 @@
+---
+/**
+ * FormatHealthChart — Line chart showing player count and archetype diversity over time.
+ */
+interface Props {
+    data: {
+        tournament_date: string;
+        tournament_name: string;
+        player_count: number;
+        unique_archetypes: number;
+    }[];
+    title?: string;
+}
+
+const { data, title = "Format Health" } = Astro.props;
+
+const chartData = JSON.stringify({
+    labels: data.map((d) => d.tournament_date),
+    names: data.map((d) => d.tournament_name),
+    playerCounts: data.map((d) => d.player_count),
+    archetypes: data.map((d) => d.unique_archetypes),
+});
+---
+
+<div class="chart-container">
+    <h3 class="chart-title">{title}</h3>
+    <canvas
+        id="formatHealthChart"
+        data-chart={chartData}
+        width="700"
+        height="350"></canvas>
+</div>
+
+<script>
+    import {
+        Chart,
+        LineController,
+        LineElement,
+        PointElement,
+        CategoryScale,
+        LinearScale,
+        Tooltip,
+        Legend,
+        Filler,
+    } from "chart.js";
+    Chart.register(
+        LineController,
+        LineElement,
+        PointElement,
+        CategoryScale,
+        LinearScale,
+        Tooltip,
+        Legend,
+        Filler,
+    );
+
+    document.addEventListener("astro:page-load", () => {
+        const canvas = document.getElementById(
+            "formatHealthChart",
+        ) as HTMLCanvasElement;
+        if (!canvas) return;
+
+        const existing = Chart.getChart(canvas);
+        if (existing) existing.destroy();
+
+        const parsed = JSON.parse(canvas.dataset.chart!);
+
+        new Chart(canvas, {
+            type: "line",
+            data: {
+                labels: parsed.labels,
+                datasets: [
+                    {
+                        label: "Spieler",
+                        data: parsed.playerCounts,
+                        borderColor: "#3b82f6",
+                        backgroundColor: "rgba(59, 130, 246, 0.1)",
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        yAxisID: "y",
+                    },
+                    {
+                        label: "Deck-Archetypen",
+                        data: parsed.archetypes,
+                        borderColor: "#10b981",
+                        backgroundColor: "rgba(16, 185, 129, 0.1)",
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        yAxisID: "y1",
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: "index", intersect: false },
+                scales: {
+                    y: {
+                        type: "linear",
+                        position: "left",
+                        beginAtZero: true,
+                        title: { display: true, text: "Spieler" },
+                    },
+                    y1: {
+                        type: "linear",
+                        position: "right",
+                        beginAtZero: true,
+                        grid: { drawOnChartArea: false },
+                        title: { display: true, text: "Archetypen" },
+                    },
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            title: (ctx) => {
+                                const idx = ctx[0].dataIndex;
+                                return `${parsed.names[idx]} (${parsed.labels[idx]})`;
+                            },
+                        },
+                    },
+                },
+            },
+        });
+    });
+</script>
+
+<style>
+    .chart-container {
+        position: relative;
+        width: 100%;
+        max-width: 800px;
+        height: 400px;
+        margin: 0 auto;
+    }
+    .chart-title {
+        text-align: center;
+        margin-bottom: 0.5rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+</style>

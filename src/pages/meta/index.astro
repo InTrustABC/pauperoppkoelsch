@@ -1,0 +1,254 @@
+---
+// src/pages/meta/index.astro
+// SSR page — renders fresh on each request with data from the database.
+
+import Layout from "../../layouts/Layout.astro";
+import Main from "../../components/Main.astro";
+import H1 from "../../components/H1.astro";
+import MetaBreakdownChart from "../../components/charts/MetaBreakdownChart.astro";
+import PlayerRankingChart from "../../components/charts/PlayerRankingChart.astro";
+import FormatHealthChart from "../../components/charts/FormatHealthChart.astro";
+
+import {
+  getMetaBreakdown, getPlayerLeaderboard, getFormatHealth, getOverviewStats,
+  type MetaBreakdownEntry, type PlayerLeaderboardEntry, type FormatHealthEntry,
+} from "../../lib/analytics";
+
+// Parse days from query string, default 90
+const url = new URL(Astro.request.url);
+const days = Math.min(Math.max(parseInt(url.searchParams.get("days") ?? "90"), 7), 365);
+
+let metaBreakdown: MetaBreakdownEntry[] = [];
+let leaderboard: PlayerLeaderboardEntry[] = [];
+let formatHealth: FormatHealthEntry[] = [];
+let stats = { totalTournaments: 0, totalEntries: 0, avgFieldSize: 0, uniquePlayers: 0 };
+let error: string | null = null;
+
+try {
+  [metaBreakdown, leaderboard, formatHealth, stats] = await Promise.all([
+    getMetaBreakdown(days),
+    getPlayerLeaderboard(days),
+    getFormatHealth(days),
+    getOverviewStats(days),
+  ]);
+} catch (err) {
+  error = `Daten konnten nicht geladen werden: ${err instanceof Error ? err.message : "Unbekannter Fehler"}`;
+}
+---
+
+<Layout title="Analytics | Pauper Colonia">
+  <Main>
+    <H1 text="Pauper Colonia Analytics" />
+
+    <!-- Date Range Filter -->
+    <div class="filter-bar">
+      <span class="filter-label">Zeitraum:</span>
+      <div class="filter-buttons">
+        <a href="/meta?days=30" class:list={["filter-btn", { active: days === 30 }]}>30 Tage</a>
+        <a href="/meta?days=90" class:list={["filter-btn", { active: days === 90 }]}>90 Tage</a>
+        <a href="/meta?days=180" class:list={["filter-btn", { active: days === 180 }]}>180 Tage</a>
+        <a href="/meta?days=365" class:list={["filter-btn", { active: days === 365 }]}>1 Jahr</a>
+      </div>
+    </div>
+
+    {error ? (
+      <div class="error-message">
+        <p>{error}</p>
+      </div>
+    ) : (
+      <>
+        <!-- Overview Stats -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value">{stats?.totalTournaments ?? 0}</div>
+            <div class="stat-label">Turniere</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">{stats?.uniquePlayers ?? 0}</div>
+            <div class="stat-label">Spieler</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">{stats?.avgFieldSize ?? 0}</div>
+            <div class="stat-label">Ø Teilnehmer</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">{stats?.totalEntries ?? 0}</div>
+            <div class="stat-label">Gesamt Einträge</div>
+          </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="charts-section">
+          {metaBreakdown && metaBreakdown.length > 0 && (
+            <div class="chart-card">
+              <MetaBreakdownChart
+                data={metaBreakdown}
+                title={`Meta Breakdown (${days} Tage)`}
+              />
+            </div>
+          )}
+
+          {leaderboard && leaderboard.length > 0 && (
+            <div class="chart-card">
+              <PlayerRankingChart
+                data={leaderboard}
+                title={`Spieler Ranking (${days} Tage)`}
+              />
+            </div>
+          )}
+
+          {formatHealth && formatHealth.length > 0 && (
+            <div class="chart-card">
+              <FormatHealthChart
+                data={formatHealth}
+                title={`Format Health (${days} Tage)`}
+              />
+            </div>
+          )}
+        </div>
+
+        {(!metaBreakdown || metaBreakdown.length === 0) &&
+         (!leaderboard || leaderboard.length === 0) &&
+         (!formatHealth || formatHealth.length === 0) && (
+          <div class="empty-state">
+            <p>Keine Daten für den gewählten Zeitraum vorhanden.</p>
+            <p>Die Datenbank wird täglich aktualisiert. Bitte versuche es später erneut.</p>
+          </div>
+        )}
+      </>
+    )}
+
+    <div class="back-link">
+      <a href="/standings">← Zurück zu den Turnieren</a>
+    </div>
+  </Main>
+</Layout>
+
+<style>
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 1.5rem 0;
+    flex-wrap: wrap;
+  }
+
+  .filter-label {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #555;
+  }
+
+  .filter-buttons {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .filter-btn {
+    padding: 0.4rem 1rem;
+    border: 1px solid #ddd;
+    border-radius: 0.375rem;
+    text-decoration: none;
+    font-size: 0.9rem;
+    color: #333;
+    background: #fff;
+    transition: all 0.2s ease;
+  }
+
+  .filter-btn:hover {
+    border-color: #0066cc;
+    color: #0066cc;
+  }
+
+  .filter-btn.active {
+    background: #0066cc;
+    color: #fff;
+    border-color: #0066cc;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0 2rem;
+  }
+
+  .stat-card {
+    background: #fafafa;
+    border: 1px solid #eee;
+    border-radius: 0.5rem;
+    padding: 1.25rem;
+    text-align: center;
+  }
+
+  .stat-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #0066cc;
+  }
+
+  .stat-label {
+    font-size: 0.85rem;
+    color: #666;
+    margin-top: 0.25rem;
+  }
+
+  .charts-section {
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+    margin: 2rem 0;
+  }
+
+  .chart-card {
+    background: #fafafa;
+    border: 1px solid #eee;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #888;
+  }
+
+  .empty-state p {
+    margin: 0.5rem 0;
+  }
+
+  .error-message {
+    background-color: #fee;
+    border: 1px solid #fcc;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin: 1rem 0;
+    color: #c33;
+  }
+
+  .back-link {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid #eee;
+  }
+
+  .back-link a {
+    color: #0066cc;
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .back-link a:hover {
+    text-decoration: underline;
+  }
+
+  @media (max-width: 640px) {
+    .stats-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .stat-value {
+      font-size: 1.4rem;
+    }
+  }
+</style>

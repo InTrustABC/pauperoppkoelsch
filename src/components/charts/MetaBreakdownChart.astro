@@ -1,0 +1,138 @@
+---
+/**
+ * MetaBreakdownChart — Doughnut chart showing deck archetype distribution.
+ * Pass data as a JSON-serializable prop; Chart.js renders client-side.
+ */
+interface Props {
+    /** Array of { deck_archetype: string, total_count: number, avg_percentage: number } */
+    data: {
+        deck_archetype: string;
+        total_count: number;
+        avg_percentage: number;
+    }[];
+    title?: string;
+}
+
+const { data, title = "Meta Breakdown" } = Astro.props;
+
+// Top 10 + "Other"
+const sorted = [...data].sort((a, b) => b.total_count - a.total_count);
+const top = sorted.slice(0, 10);
+const rest = sorted.slice(10);
+
+if (rest.length > 0) {
+    top.push({
+        deck_archetype: "Sonstige",
+        total_count: rest.reduce((s, d) => s + d.total_count, 0),
+        avg_percentage: rest.reduce((s, d) => s + d.avg_percentage, 0),
+    });
+}
+
+const chartData = JSON.stringify({
+    labels: top.map((d) => d.deck_archetype),
+    counts: top.map((d) => d.total_count),
+});
+---
+
+<div class="chart-container">
+    <h3 class="chart-title">{title}</h3>
+    <canvas
+        id="metaBreakdownChart"
+        data-chart={chartData}
+        width="400"
+        height="400"></canvas>
+</div>
+
+<script>
+    import {
+        Chart,
+        DoughnutController,
+        ArcElement,
+        Tooltip,
+        Legend,
+    } from "chart.js";
+    Chart.register(DoughnutController, ArcElement, Tooltip, Legend);
+
+    document.addEventListener("astro:page-load", () => {
+        const canvas = document.getElementById(
+            "metaBreakdownChart",
+        ) as HTMLCanvasElement;
+        if (!canvas) return;
+
+        // Destroy previous instance if it exists
+        const existing = Chart.getChart(canvas);
+        if (existing) existing.destroy();
+
+        const parsed = JSON.parse(canvas.dataset.chart!);
+
+        const colors = [
+            "#3b82f6",
+            "#ef4444",
+            "#10b981",
+            "#f59e0b",
+            "#8b5cf6",
+            "#ec4899",
+            "#06b6d4",
+            "#84cc16",
+            "#f97316",
+            "#6366f1",
+            "#9ca3af",
+        ];
+
+        new Chart(canvas, {
+            type: "doughnut",
+            data: {
+                labels: parsed.labels,
+                datasets: [
+                    {
+                        data: parsed.counts,
+                        backgroundColor: colors.slice(0, parsed.labels.length),
+                        borderWidth: 2,
+                        borderColor: "#fff",
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: "right",
+                        labels: { font: { size: 12 }, padding: 12 },
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const total = ctx.dataset.data.reduce(
+                                    (a: number, b: number) => a + b,
+                                    0,
+                                );
+                                const pct = (
+                                    (ctx.parsed / total) *
+                                    100
+                                ).toFixed(1);
+                                return `${ctx.label}: ${ctx.parsed} (${pct}%)`;
+                            },
+                        },
+                    },
+                },
+            },
+        });
+    });
+</script>
+
+<style>
+    .chart-container {
+        position: relative;
+        width: 100%;
+        max-width: 600px;
+        height: 350px;
+        margin: 0 auto;
+    }
+    .chart-title {
+        text-align: center;
+        margin-bottom: 0.5rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+</style>
