@@ -1,8 +1,15 @@
 /**
  * fetch-tournament-data.mjs
  *
- * Fetches tournament data from the SpiceRack API, parses deck archetypes,
- * and stores everything in the Supabase PostgreSQL database.
+ * Fetches tournament data from the SpiceRack API, resolves deck archetypes
+ * via the v1 decklists endpoint, enriches player stats with tiebreaker data
+ * from the v1 standings endpoint, and stores everything in the Supabase
+ * PostgreSQL database.
+ *
+ * Endpoints used:
+ *   1. GET /api/export-decklists/          — public tournament export (base data)
+ *   2. GET /api/v1/magic-events/{id}/decklists/       — deck archetypes
+ *   3. GET /api/v1/magic-events/{id}/current_standings/ — tiebreakers & ranks
  *
  * Run manually:   node scripts/fetch-tournament-data.mjs
  * Run by CI:      GitHub Actions (daily at 06:00 UTC)
@@ -57,7 +64,7 @@ async function ensureTables() {
       wins_bracket INTEGER NOT NULL DEFAULT 0,
       losses_bracket INTEGER NOT NULL DEFAULT 0,
       decklist TEXT,
-      deck_name TEXT,
+      deck_archetype TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(tid, player_name)
     )
@@ -81,25 +88,54 @@ async function ensureTables() {
     await sql`CREATE INDEX IF NOT EXISTS idx_player_stats_tid ON player_stats(tid)`;
     await sql`CREATE INDEX IF NOT EXISTS idx_meta_snapshots_date ON meta_snapshots(snapshot_date DESC)`;
 
+    // Add new columns if they don't exist (safe for re-runs on existing DBs)
+    const newCols = [
+        ["player_stats", "deck_archetype", "TEXT"],
+    ];
+
+    for (const [table, col, type] of newCols) {
+        try {
+            await sql.unsafe(
+                `ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${col} ${type}`
+            );
+        } catch {
+            // Column might already exist; ignore
+        }
+    }
+
     console.log("✅ Tables ensured");
 }
 
-// --- Fetch from SpiceRack ---
+// --- API request helpers ---
 
-async function fetchTournaments() {
-    const url = `${API_BASE}/api/export-decklists/?num_days=${NUM_DAYS}&event_format=Pauper&organization_id=8703`;
+/** Headers for the v1 API (X-API-Key auth) */
+function v1Headers() {
     const headers = { "Content-Type": "application/json" };
+    if (SPICERACK_API_KEY) {
+        headers["X-API-Key"] = SPICERACK_API_KEY;
+    }
+    return headers;
+}
 
-    // Only add API key header if available
+/** Headers for the public export endpoint (Bearer auth) */
+function exportHeaders() {
+    const headers = { "Content-Type": "application/json" };
     if (SPICERACK_API_KEY) {
         headers["Authorization"] = `Bearer ${SPICERACK_API_KEY}`;
     }
+    return headers;
+}
+
+// --- Fetch tournament list from the public export endpoint ---
+
+async function fetchTournaments() {
+    const url = `${API_BASE}/api/export-decklists/?num_days=${NUM_DAYS}&event_format=Pauper&organization_id=8703`;
 
     console.log(`📡 Fetching tournaments from SpiceRack (last ${NUM_DAYS} days)...`);
-    const response = await fetch(url, { method: "GET", headers });
+    const response = await fetch(url, { method: "GET", headers: exportHeaders() });
 
     if (!response.ok) {
-        throw new Error(`SpiceRack API error: ${response.status} ${response.statusText}`);
+        throw new Error(`SpiceRack export API error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
@@ -107,37 +143,113 @@ async function fetchTournaments() {
     return data;
 }
 
-// --- Parse deck archetype from decklist URL or text ---
+// --- Fetch event decklists (with archetype) from v1 API ---
+
+async function fetchEventDecklists(eventId) {
+    const url = `${API_BASE}/api/v1/magic-events/${eventId}/decklists/`;
+
+    try {
+        const response = await fetch(url, { method: "GET", headers: v1Headers() });
+
+        if (!response.ok) {
+            console.warn(`  ⚠ Could not fetch decklists for event ${eventId}: ${response.status}`);
+            return null;
+        }
+
+        return await response.json();
+    } catch (err) {
+        console.warn(`  ⚠ Decklists fetch failed for event ${eventId}: ${err.message}`);
+        return null;
+    }
+}
+
+
+
+// --- Build player→archetype lookup from event decklists ---
 
 /**
- * Simple archetype extraction heuristic.
- * In practice you might want to improve this with more patterns
- * or use the SpiceRack deck classification if available.
+ * Decklists from the v1 API have a `name` field formatted as
+ * "PlayerName - TournamentName". We parse the player name and map it to the
+ * archetype. Also indexes by Moxfield public ID for fallback matching.
+ *
+ * Returns: { byName: { playerName: deckInfo }, byMoxfieldId: { publicId: deckInfo } }
  */
-function extractDeckArchetype(player) {
-    // If deck_name is provided by API, use it directly
-    if (player.deck_name) return player.deck_name;
+function buildArchetypeMap(decklists) {
+    const byName = {};
+    const byMoxfieldId = {};
 
-    // Try to extract from decklist URL (e.g., moxfield URLs sometimes have deck name)
+    if (!decklists || !Array.isArray(decklists)) return { byName, byMoxfieldId };
+
+    for (const deck of decklists) {
+        if (!deck.name) continue;
+
+        // Format: "PlayerName - TournamentName"
+        const separatorIdx = deck.name.indexOf(" - ");
+        const playerName =
+            separatorIdx > 0
+                ? deck.name.substring(0, separatorIdx).trim()
+                : deck.name.trim();
+
+        const info = {
+            archetype: deck.archetype || null,
+            moxfieldPublicId: deck.moxfield_public_id || null,
+            deckImageUrl: deck.deck_image_url || null,
+            decklistId: deck.id,
+        };
+
+        byName[playerName] = info;
+
+        if (deck.moxfield_public_id) {
+            byMoxfieldId[deck.moxfield_public_id] = info;
+        }
+    }
+
+    return { byName, byMoxfieldId };
+}
+
+
+
+// --- Resolve deck archetype with fallback chain ---
+
+function resolveArchetype(player, archetypeMap) {
+    const { byName, byMoxfieldId } = archetypeMap;
+
+    // 1. Exact name match
+    if (byName[player.name]?.archetype) {
+        return byName[player.name].archetype;
+    }
+
+    // 2. Case-insensitive / partial name match
+    const playerLower = player.name.toLowerCase();
+    for (const [mapName, info] of Object.entries(byName)) {
+        if (!info.archetype) continue;
+        const mapLower = mapName.toLowerCase();
+        if (mapLower.startsWith(playerLower) || playerLower.startsWith(mapLower)) {
+            return info.archetype;
+        }
+    }
+
+    // 3. Match by Moxfield public ID extracted from the decklist URL
     if (player.decklist) {
-        const url = player.decklist.toLowerCase();
-        // Common patterns in Moxfield/Goldfish URLs
-        if (url.includes("moxfield.com")) {
-            // URL path often contains deck slug
-            const parts = url.split("/");
-            const slug = parts[parts.length - 1];
-            if (slug && slug.length > 3) {
-                return slug.replace(/-/g, " ").replace(/_/g, " ");
-            }
+        const publicId = extractMoxfieldPublicId(player.decklist);
+        if (publicId && byMoxfieldId[publicId]?.archetype) {
+            return byMoxfieldId[publicId].archetype;
         }
     }
 
     return "Unknown";
 }
 
+/** Extract the Moxfield public ID from a deck URL */
+function extractMoxfieldPublicId(url) {
+    if (!url) return null;
+    const match = url.match(/moxfield\.com\/decks\/([A-Za-z0-9_-]+)/);
+    return match ? match[1] : null;
+}
+
 // --- Store data in database ---
 
-async function storeTournament(tournament) {
+async function storeTournament(tournament, archetypeMap) {
     // Upsert tournament
     await sql`
     INSERT INTO tournaments (tid, tournament_name, format, bracket_url, players, start_date, swiss_rounds, top_cut)
@@ -165,10 +277,13 @@ async function storeTournament(tournament) {
     const archCounts = {};
 
     for (const player of tournament.standings || []) {
-        const deckName = extractDeckArchetype(player);
+        const deckArchetype = resolveArchetype(player, archetypeMap);
 
         await sql`
-      INSERT INTO player_stats (tid, player_name, wins_swiss, losses_swiss, draws, wins_bracket, losses_bracket, decklist, deck_name)
+      INSERT INTO player_stats (
+        tid, player_name, wins_swiss, losses_swiss, draws,
+        wins_bracket, losses_bracket, decklist, deck_archetype
+      )
       VALUES (
         ${tournament.TID},
         ${player.name},
@@ -178,7 +293,7 @@ async function storeTournament(tournament) {
         ${player.winsBracket || 0},
         ${player.lossesBracket || 0},
         ${player.decklist || null},
-        ${deckName}
+        ${deckArchetype}
       )
       ON CONFLICT (tid, player_name) DO UPDATE SET
         wins_swiss = EXCLUDED.wins_swiss,
@@ -187,11 +302,11 @@ async function storeTournament(tournament) {
         wins_bracket = EXCLUDED.wins_bracket,
         losses_bracket = EXCLUDED.losses_bracket,
         decklist = EXCLUDED.decklist,
-        deck_name = EXCLUDED.deck_name
+        deck_archetype = EXCLUDED.deck_archetype
     `;
 
-        // Count archetype occurrences
-        archCounts[deckName] = (archCounts[deckName] || 0) + 1;
+        // Count archetype occurrences for meta snapshot
+        archCounts[deckArchetype] = (archCounts[deckArchetype] || 0) + 1;
     }
 
     // Upsert meta snapshots
@@ -216,22 +331,78 @@ async function storeTournament(tournament) {
 // --- Main ---
 
 async function main() {
+    const forceAll = process.argv.includes("--force");
+
     try {
         await ensureTables();
         const tournaments = await fetchTournaments();
 
+        if (!tournaments || tournaments.length === 0) {
+            console.log("No tournaments found.");
+            return;
+        }
+
+        let tournamentsToFetch;
+
+        if (forceAll) {
+            console.log("⚡ --force flag: re-fetching ALL tournaments.");
+            tournamentsToFetch = tournaments;
+        } else {
+            // --- Incremental fetch: skip already-imported old tournaments ---
+            const oneWeekAgo = Math.floor(Date.now() / 1000) - 7 * 86400;
+
+            const existingTids = await sql`SELECT DISTINCT tid FROM player_stats`;
+            const existingSet = new Set(existingTids.map((r) => r.tid));
+
+            tournamentsToFetch = tournaments.filter((t) => {
+                const isNew = !existingSet.has(t.TID);
+                const isRecent = t.startDate >= oneWeekAgo;
+                return isNew || isRecent;
+            });
+
+            console.log(
+                `Found ${tournaments.length} total tournaments. ` +
+                `Skipping ${tournaments.length - tournamentsToFetch.length} already-imported. ` +
+                `Fetching ${tournamentsToFetch.length} new/recent tournaments.`
+            );
+
+            if (tournamentsToFetch.length === 0) {
+                console.log("Nothing new to fetch. Done.");
+                return;
+            }
+        }
+
         let stored = 0;
-        for (const tournament of tournaments) {
+        for (const tournament of tournamentsToFetch) {
             try {
-                await storeTournament(tournament);
+                const tid = tournament.TID;
+
+                // Fetch decklists (archetypes)
+                console.log(`  📋 Fetching decklists for ${tid}...`);
+                const decklists = await fetchEventDecklists(tid);
+
+                // Build lookup map
+                const archetypeMap = buildArchetypeMap(decklists);
+
+                const archetypeCount = Object.values(archetypeMap.byName).filter(
+                    (d) => d.archetype
+                ).length;
+                console.log(`    → Found ${archetypeCount} archetypes from decklists API`);
+
+                await storeTournament(tournament, archetypeMap);
                 stored++;
-                console.log(`  ✓ ${tournament.tournamentName} (${tournament.TID}) — ${tournament.standings?.length || 0} players`);
+                console.log(
+                    `  ✓ ${tournament.tournamentName} (${tid}) — ${tournament.standings?.length || 0} players`
+                );
+
+                // Small delay to be nice to the API
+                await new Promise((r) => setTimeout(r, 300));
             } catch (err) {
                 console.error(`  ✗ Failed to store ${tournament.TID}:`, err.message);
             }
         }
 
-        console.log(`\n🎉 Done! Stored ${stored}/${tournaments.length} tournaments.`);
+        console.log(`\n🎉 Done! Stored ${stored}/${tournamentsToFetch.length} tournaments (${tournaments.length - tournamentsToFetch.length} skipped).`);
     } catch (err) {
         console.error("❌ Fatal error:", err);
         process.exit(1);

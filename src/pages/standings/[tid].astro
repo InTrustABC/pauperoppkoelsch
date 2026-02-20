@@ -79,19 +79,17 @@ function getWinPercentage(wins: number, losses: number, draws: number): string {
                         <tr>
                             <th>Rank</th>
                             <th>Spieler</th>
+                            <th>Archetype</th>
                             <th>W-L-D</th>
                             <th>Win %</th>
-                            <th>Record</th>
+                            <th>Bracket</th>
                             <th>Decklist</th>
                         </tr>
                     </thead>
                     <tbody>
                         {
                             tournament.standings.map((player, index) => {
-                                const totalGames =
-                                    player.winsSwiss +
-                                    player.lossesSwiss +
-                                    player.draws;
+                                const displayRank = index + 1;
                                 const winPercentage = getWinPercentage(
                                     player.winsSwiss,
                                     player.lossesSwiss,
@@ -100,9 +98,16 @@ function getWinPercentage(wins: number, losses: number, draws: number): string {
 
                                 return (
                                     <tr>
-                                        <td class="rank">{index + 1}</td>
+                                        <td class="rank">{displayRank}</td>
                                         <td class="player-name">
                                             {player.name}
+                                        </td>
+                                        <td class="archetype">
+                                            {player.deckArchetype ?? (
+                                                <span class="no-decklist">
+                                                    —
+                                                </span>
+                                            )}
                                         </td>
                                         <td class="record">
                                             {`${player.winsSwiss}-${player.lossesSwiss}-${player.draws}`}
@@ -243,6 +248,12 @@ function getWinPercentage(wins: number, losses: number, draws: number): string {
 
     .player-name {
         font-weight: 500;
+    }
+
+    .archetype {
+        font-size: 0.9em;
+        color: #444;
+        white-space: nowrap;
     }
 
     .record {
