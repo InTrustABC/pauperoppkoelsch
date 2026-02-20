@@ -15,10 +15,10 @@ interface Props {
 
 const { data, title = "Meta Breakdown" } = Astro.props;
 
-// Top 10 + "Other"
+// Top 15 + "Other"
 const sorted = [...data].sort((a, b) => b.total_count - a.total_count);
-const top = sorted.slice(0, 10);
-const rest = sorted.slice(10);
+const top = sorted.slice(0, 15);
+const rest = sorted.slice(15);
 
 if (rest.length > 0) {
     top.push({
@@ -39,8 +39,8 @@ const chartData = JSON.stringify({
     <canvas
         id="metaBreakdownChart"
         data-chart={chartData}
-        width="400"
-        height="400"></canvas>
+        width="500"
+        height="500"></canvas>
 </div>
 
 <script>
@@ -51,7 +51,14 @@ const chartData = JSON.stringify({
         Tooltip,
         Legend,
     } from "chart.js";
-    Chart.register(DoughnutController, ArcElement, Tooltip, Legend);
+    import ChartDataLabels from "chartjs-plugin-datalabels";
+    Chart.register(
+        DoughnutController,
+        ArcElement,
+        Tooltip,
+        Legend,
+        ChartDataLabels,
+    );
 
     document.addEventListener("astro:page-load", () => {
         const canvas = document.getElementById(
@@ -59,11 +66,12 @@ const chartData = JSON.stringify({
         ) as HTMLCanvasElement;
         if (!canvas) return;
 
-        // Destroy previous instance if it exists
         const existing = Chart.getChart(canvas);
         if (existing) existing.destroy();
 
         const parsed = JSON.parse(canvas.dataset.chart!);
+
+        const isMobile = window.innerWidth <= 640;
 
         const colors = [
             "#3b82f6",
@@ -79,8 +87,45 @@ const chartData = JSON.stringify({
             "#9ca3af",
         ];
 
+        // Custom plugin to draw connector lines from slice to outside label (desktop only)
+        const connectorLinePlugin = {
+            id: "connectorLines",
+            afterDatasetsDraw(chart: any) {
+                if (isMobile) return;
+                const meta = chart.getDatasetMeta(0);
+                if (!meta || !meta.data) return;
+                const ctx = chart.ctx;
+
+                meta.data.forEach((arc: any, i: number) => {
+                    if (!chart.getDataVisibility(i)) return;
+
+                    const centerX = arc.x;
+                    const centerY = arc.y;
+                    const midAngle = (arc.startAngle + arc.endAngle) / 2;
+                    const outerRadius = arc.outerRadius;
+
+                    const edgeX = centerX + Math.cos(midAngle) * outerRadius;
+                    const edgeY = centerY + Math.sin(midAngle) * outerRadius;
+
+                    const labelRadius = outerRadius + 28;
+                    const labelX = centerX + Math.cos(midAngle) * labelRadius;
+                    const labelY = centerY + Math.sin(midAngle) * labelRadius;
+
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.moveTo(edgeX, edgeY);
+                    ctx.lineTo(labelX, labelY);
+                    ctx.strokeStyle = "#888";
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                    ctx.restore();
+                });
+            },
+        };
+
         new Chart(canvas, {
             type: "doughnut",
+            plugins: [connectorLinePlugin],
             data: {
                 labels: parsed.labels,
                 datasets: [
@@ -95,10 +140,28 @@ const chartData = JSON.stringify({
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                onClick: (_event: any, elements: any[], chart: any) => {
+                    if (elements.length > 0) {
+                        const index = elements[0].index;
+                        chart.toggleDataVisibility(index);
+                        chart.update();
+                    }
+                },
+                layout: {
+                    padding: isMobile
+                        ? { top: 10, bottom: 10, left: 10, right: 10 }
+                        : { top: 60, bottom: 60, left: 80, right: 120 },
+                },
                 plugins: {
                     legend: {
-                        position: "right",
-                        labels: { font: { size: 12 }, padding: 12 },
+                        display: isMobile,
+                        position: "bottom",
+                        labels: {
+                            padding: 12,
+                            usePointStyle: true,
+                            pointStyle: "circle",
+                            font: { size: 10 },
+                        },
                     },
                     tooltip: {
                         callbacks: {
@@ -115,6 +178,55 @@ const chartData = JSON.stringify({
                             },
                         },
                     },
+                    datalabels: isMobile
+                        ? {
+                              color: "#fff",
+                              font: { size: 10, weight: "bold" as const },
+                              textAlign: "center" as const,
+                              formatter: (value: number, ctx: any) => {
+                                  if (
+                                      !ctx.chart.getDataVisibility(
+                                          ctx.dataIndex,
+                                      )
+                                  )
+                                      return "";
+                                  const total = ctx.dataset.data.reduce(
+                                      (a: number, b: number, i: number) =>
+                                          ctx.chart.getDataVisibility(i)
+                                              ? a + b
+                                              : a,
+                                      0,
+                                  );
+                                  return `${((value / total) * 100).toFixed(1)}%`;
+                              },
+                          }
+                        : {
+                              anchor: "end" as const,
+                              align: "end" as const,
+                              offset: 12,
+                              color: "#333",
+                              font: { size: 11, weight: "bold" as const },
+                              textAlign: "center" as const,
+                              formatter: (value: number, ctx: any) => {
+                                  if (
+                                      !ctx.chart.getDataVisibility(
+                                          ctx.dataIndex,
+                                      )
+                                  )
+                                      return "";
+                                  const total = ctx.dataset.data.reduce(
+                                      (a: number, b: number, i: number) =>
+                                          ctx.chart.getDataVisibility(i)
+                                              ? a + b
+                                              : a,
+                                      0,
+                                  );
+                                  const pct = ((value / total) * 100).toFixed(
+                                      1,
+                                  );
+                                  return `${ctx.chart.data.labels[ctx.dataIndex]}\n${pct}%`;
+                              },
+                          },
                 },
             },
         });
@@ -125,8 +237,8 @@ const chartData = JSON.stringify({
     .chart-container {
         position: relative;
         width: 100%;
-        max-width: 600px;
-        height: 350px;
+        max-width: 800px;
+        height: 550px;
         margin: 0 auto;
     }
     .chart-title {
@@ -134,5 +246,10 @@ const chartData = JSON.stringify({
         margin-bottom: 0.5rem;
         font-size: 1.1rem;
         font-weight: 600;
+    }
+    @media (max-width: 640px) {
+        .chart-container {
+            height: 480px;
+        }
     }
 </style>
