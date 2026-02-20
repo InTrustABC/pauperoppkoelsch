@@ -50,6 +50,11 @@ export interface PlayerStat {
   created_at?: string;
 }
 
+export interface DeckArchetype {
+  name: string;
+  created_at?: string;
+}
+
 export interface MetaSnapshot {
   id?: number;
   snapshot_date: string;
@@ -110,6 +115,13 @@ export async function initializeDatabase() {
   `;
 
   await db`
+    CREATE TABLE IF NOT EXISTS deck_archetypes (
+      name TEXT PRIMARY KEY,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
+  await db`
     CREATE TABLE IF NOT EXISTS player_stats (
       id SERIAL PRIMARY KEY,
       tid TEXT NOT NULL REFERENCES tournaments(tid) ON DELETE CASCADE,
@@ -120,7 +132,7 @@ export async function initializeDatabase() {
       wins_bracket INTEGER NOT NULL DEFAULT 0,
       losses_bracket INTEGER NOT NULL DEFAULT 0,
       decklist TEXT,
-      deck_archetype TEXT,
+      deck_archetype TEXT REFERENCES deck_archetypes(name) ON UPDATE CASCADE,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(tid, player_name)
     )
@@ -131,7 +143,7 @@ export async function initializeDatabase() {
       id SERIAL PRIMARY KEY,
       snapshot_date DATE NOT NULL,
       tid TEXT NOT NULL REFERENCES tournaments(tid) ON DELETE CASCADE,
-      deck_archetype TEXT NOT NULL,
+      deck_archetype TEXT NOT NULL REFERENCES deck_archetypes(name) ON UPDATE CASCADE,
       count INTEGER NOT NULL DEFAULT 0,
       percentage_of_field REAL NOT NULL DEFAULT 0,
       player_count INTEGER NOT NULL DEFAULT 0,
@@ -167,6 +179,39 @@ export async function initializeDatabase() {
   await db`
     CREATE INDEX IF NOT EXISTS idx_meta_snapshots_date ON meta_snapshots(snapshot_date DESC)
   `;
+
+  // --- Migration for existing databases: populate deck_archetypes from existing data ---
+  await db`
+    INSERT INTO deck_archetypes (name)
+    SELECT DISTINCT deck_archetype FROM player_stats
+    WHERE deck_archetype IS NOT NULL
+    ON CONFLICT (name) DO NOTHING
+  `;
+  await db`
+    INSERT INTO deck_archetypes (name)
+    SELECT DISTINCT deck_archetype FROM meta_snapshots
+    ON CONFLICT (name) DO NOTHING
+  `;
+
+  // Add FK constraints if they don't already exist (for pre-existing tables)
+  try {
+    await db`
+      ALTER TABLE player_stats
+      ADD CONSTRAINT fk_player_stats_deck_archetype
+      FOREIGN KEY (deck_archetype) REFERENCES deck_archetypes(name) ON UPDATE CASCADE
+    `;
+  } catch {
+    // Constraint already exists; ignore
+  }
+  try {
+    await db`
+      ALTER TABLE meta_snapshots
+      ADD CONSTRAINT fk_meta_snapshots_deck_archetype
+      FOREIGN KEY (deck_archetype) REFERENCES deck_archetypes(name) ON UPDATE CASCADE
+    `;
+  } catch {
+    // Constraint already exists; ignore
+  }
 }
 
 // --- Tournament Queries ---
@@ -185,6 +230,23 @@ export async function upsertTournament(t: Tournament) {
       swiss_rounds = EXCLUDED.swiss_rounds,
       top_cut = EXCLUDED.top_cut
   `;
+}
+
+export async function upsertDeckArchetype(name: string) {
+  const db = getDb();
+  await db`
+    INSERT INTO deck_archetypes (name)
+    VALUES (${name})
+    ON CONFLICT (name) DO NOTHING
+  `;
+}
+
+export async function getAllDeckArchetypes(): Promise<DeckArchetype[]> {
+  const db = getDb();
+  const rows = await db<DeckArchetype[]>`
+    SELECT * FROM deck_archetypes ORDER BY name ASC
+  `;
+  return rows;
 }
 
 export async function upsertPlayerStat(p: PlayerStat) {

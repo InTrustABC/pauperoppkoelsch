@@ -54,6 +54,13 @@ async function ensureTables() {
   `;
 
     await sql`
+    CREATE TABLE IF NOT EXISTS deck_archetypes (
+      name TEXT PRIMARY KEY,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
+    await sql`
     CREATE TABLE IF NOT EXISTS player_stats (
       id SERIAL PRIMARY KEY,
       tid TEXT NOT NULL REFERENCES tournaments(tid) ON DELETE CASCADE,
@@ -64,7 +71,7 @@ async function ensureTables() {
       wins_bracket INTEGER NOT NULL DEFAULT 0,
       losses_bracket INTEGER NOT NULL DEFAULT 0,
       decklist TEXT,
-      deck_archetype TEXT,
+      deck_archetype TEXT REFERENCES deck_archetypes(name) ON UPDATE CASCADE,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(tid, player_name)
     )
@@ -75,7 +82,7 @@ async function ensureTables() {
       id SERIAL PRIMARY KEY,
       snapshot_date DATE NOT NULL,
       tid TEXT NOT NULL REFERENCES tournaments(tid) ON DELETE CASCADE,
-      deck_archetype TEXT NOT NULL,
+      deck_archetype TEXT NOT NULL REFERENCES deck_archetypes(name) ON UPDATE CASCADE,
       count INTEGER NOT NULL DEFAULT 0,
       percentage_of_field REAL NOT NULL DEFAULT 0,
       player_count INTEGER NOT NULL DEFAULT 0,
@@ -102,6 +109,35 @@ async function ensureTables() {
     await sql`CREATE INDEX IF NOT EXISTS idx_tournaments_start_date ON tournaments(start_date DESC)`;
     await sql`CREATE INDEX IF NOT EXISTS idx_player_stats_tid ON player_stats(tid)`;
     await sql`CREATE INDEX IF NOT EXISTS idx_meta_snapshots_date ON meta_snapshots(snapshot_date DESC)`;
+
+    // --- Migration for existing databases: populate deck_archetypes from existing data ---
+    await sql`
+      INSERT INTO deck_archetypes (name)
+      SELECT DISTINCT deck_archetype FROM player_stats
+      WHERE deck_archetype IS NOT NULL
+      ON CONFLICT (name) DO NOTHING
+    `;
+    await sql`
+      INSERT INTO deck_archetypes (name)
+      SELECT DISTINCT deck_archetype FROM meta_snapshots
+      ON CONFLICT (name) DO NOTHING
+    `;
+
+    // Add FK constraints if they don't already exist (for pre-existing tables)
+    try {
+        await sql.unsafe(
+            `ALTER TABLE player_stats ADD CONSTRAINT fk_player_stats_deck_archetype FOREIGN KEY (deck_archetype) REFERENCES deck_archetypes(name) ON UPDATE CASCADE`
+        );
+    } catch {
+        // Constraint already exists; ignore
+    }
+    try {
+        await sql.unsafe(
+            `ALTER TABLE meta_snapshots ADD CONSTRAINT fk_meta_snapshots_deck_archetype FOREIGN KEY (deck_archetype) REFERENCES deck_archetypes(name) ON UPDATE CASCADE`
+        );
+    } catch {
+        // Constraint already exists; ignore
+    }
 
     // Add new columns if they don't exist (safe for re-runs on existing DBs)
     const newCols = [
@@ -290,6 +326,19 @@ async function storeTournament(tournament, archetypeMap) {
 
     // Upsert player stats
     const archCounts = {};
+
+    // Collect all unique archetypes and upsert into deck_archetypes first
+    const uniqueArchetypes = new Set();
+    for (const player of tournament.standings || []) {
+        const arch = resolveArchetype(player, archetypeMap);
+        if (arch) uniqueArchetypes.add(arch);
+    }
+    for (const arch of uniqueArchetypes) {
+        await sql`
+          INSERT INTO deck_archetypes (name) VALUES (${arch})
+          ON CONFLICT (name) DO NOTHING
+        `;
+    }
 
     for (const player of tournament.standings || []) {
         const deckArchetype = resolveArchetype(player, archetypeMap);
