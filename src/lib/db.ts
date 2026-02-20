@@ -381,6 +381,40 @@ export async function refreshPlayerRankings() {
   `;
 }
 
+/**
+ * Recompute the meta_snapshots table from player_stats + tournaments.
+ * This ensures manual archetype corrections in player_stats are reflected.
+ */
+export async function refreshMetaSnapshots() {
+  const db = getDb();
+  await db`DELETE FROM meta_snapshots`;
+
+  // Ensure all archetypes from player_stats exist in deck_archetypes
+  await db`
+    INSERT INTO deck_archetypes (name)
+    SELECT DISTINCT deck_archetype FROM player_stats
+    WHERE deck_archetype IS NOT NULL
+    ON CONFLICT (name) DO NOTHING
+  `;
+
+  await db`
+    INSERT INTO meta_snapshots (
+      snapshot_date, tid, deck_archetype, count, percentage_of_field, player_count
+    )
+    SELECT
+      TO_TIMESTAMP(t.start_date)::date AS snapshot_date,
+      ps.tid,
+      ps.deck_archetype,
+      COUNT(*)::int AS count,
+      ROUND(COUNT(*)::numeric / NULLIF(t.players, 0) * 100, 2)::float AS percentage_of_field,
+      t.players AS player_count
+    FROM player_stats ps
+    JOIN tournaments t ON t.tid = ps.tid
+    WHERE ps.deck_archetype IS NOT NULL
+    GROUP BY ps.tid, ps.deck_archetype, t.start_date, t.players
+  `;
+}
+
 export async function getMetaSnapshotsByDateRange(
   startDate: string,
   endDate: string
