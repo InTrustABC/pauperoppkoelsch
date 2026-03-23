@@ -490,8 +490,8 @@ async function main() {
  * 1 win = 3 pts, 1 draw = 1 pt, 1 loss = 0 pts.
  */
 async function refreshPlayerRankings() {
-    await sql`DELETE FROM player_rankings`;
-    await sql`
+  await sql`DELETE FROM player_rankings`;
+  await sql`
     INSERT INTO player_rankings (
       player_name, tournaments_played,
       total_wins, total_losses, total_draws, total_games,
@@ -505,15 +505,21 @@ async function refreshPlayerRankings() {
       SUM(ps.draws)::int AS total_draws,
       (SUM(ps.wins_swiss) + SUM(ps.losses_swiss) + SUM(ps.draws))::int AS total_games,
       (SUM(ps.wins_swiss) * 3 + SUM(ps.draws))::int AS points,
-      ROUND(
-        SUM(ps.wins_swiss)::numeric /
-        NULLIF(SUM(ps.wins_swiss) + SUM(ps.losses_swiss) + SUM(ps.draws), 0) * 100,
-        2
+      COALESCE(
+        ROUND(
+          SUM(ps.wins_swiss)::numeric /
+          NULLIF(SUM(ps.wins_swiss) + SUM(ps.losses_swiss) + SUM(ps.draws), 0) * 100,
+          2
+        ),
+        0
       )::float AS win_rate,
-      ROUND(
-        (SUM(ps.wins_swiss) * 3 + SUM(ps.draws))::numeric /
-        NULLIF(SUM(ps.wins_swiss) + SUM(ps.losses_swiss) + SUM(ps.draws), 0),
-        2
+      COALESCE(
+        ROUND(
+          (SUM(ps.wins_swiss) * 3 + SUM(ps.draws))::numeric /
+          NULLIF(SUM(ps.wins_swiss) + SUM(ps.losses_swiss) + SUM(ps.draws), 0),
+          2
+        ),
+        0
       )::float AS points_per_game,
       NOW()
     FROM player_stats ps
