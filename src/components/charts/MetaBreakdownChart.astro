@@ -15,10 +15,10 @@ interface Props {
 
 const { data, title = "Meta Breakdown" } = Astro.props;
 
-// Top 15 + "Other"
+// Top 20 + "Other"
 const sorted = [...data].sort((a, b) => b.total_count - a.total_count);
-const top = sorted.slice(0, 15);
-const rest = sorted.slice(15);
+const top = sorted.slice(0, 20);
+const rest = sorted.slice(20);
 
 if (rest.length > 0) {
     top.push({

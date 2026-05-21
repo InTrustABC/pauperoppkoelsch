@@ -1,35 +1,31 @@
 ---
 /**
- * PlayerRankingChart — Horizontal bar chart showing top players by win rate.
+ * Top8PerformancesChart — Horizontal bar chart showing top 8 players ranked
+ * by the sum of their best 8 tournament point scores in a season.
  */
 interface Props {
     data: {
         player_name: string;
-        win_rate: number;
+        best8_points: number;
+        best8_wins: number;
+        best8_losses: number;
+        best8_draws: number;
+        tournaments_counted: number;
         tournaments_played: number;
-        total_wins: number;
-        total_losses: number;
-        total_draws: number;
-        total_games: number;
-        points: number;
-        points_per_game: number;
     }[];
     title?: string;
-    maxPlayers?: number;
 }
 
-const { data, title = "Spieler Ranking", maxPlayers = 30 } = Astro.props;
+const { data, title = "Top 8 — Besten Turniere" } = Astro.props;
 
-const top = data.slice(0, maxPlayers);
-
-const chartHeight = Math.max(450, top.length * 28);
+const chartHeight = Math.max(350, data.length * 50);
 
 const chartData = JSON.stringify({
-    labels: top.map((p) => p.player_name),
-    points: top.map((p) => p.points),
-    records: top.map(
+    labels: data.map((p) => p.player_name),
+    points: data.map((p) => p.best8_points),
+    records: data.map(
         (p) =>
-            `${p.total_wins}W-${p.total_losses}L-${p.total_draws}D | WR: ${p.win_rate}% | PPG: ${p.points_per_game} (${p.tournaments_played} Turniere)`,
+            `${p.best8_wins}W-${p.best8_losses}L-${p.best8_draws}D | ${p.tournaments_counted}/${p.tournaments_played} Turniere gewertet`,
     ),
 });
 ---
@@ -37,7 +33,7 @@ const chartData = JSON.stringify({
 <div class="chart-container" style={`height: ${chartHeight}px;`}>
     <h3 class="chart-title">{title}</h3>
     <canvas
-        id="playerRankingChart"
+        id="top8PerformancesChart"
         data-chart={chartData}
         width="600"
         height={chartHeight - 50}></canvas>
@@ -64,7 +60,7 @@ const chartData = JSON.stringify({
 
     document.addEventListener("astro:page-load", () => {
         const canvas = document.getElementById(
-            "playerRankingChart",
+            "top8PerformancesChart",
         ) as HTMLCanvasElement;
         if (!canvas) return;
 
@@ -73,7 +69,16 @@ const chartData = JSON.stringify({
 
         const parsed = JSON.parse(canvas.dataset.chart!);
 
-        const maxPoints = Math.max(...parsed.points, 0);
+        const PLAYER_COLORS = [
+            "#6366f1",
+            "#10b981",
+            "#f59e0b",
+            "#ef4444",
+            "#3b82f6",
+            "#ec4899",
+            "#14b8a6",
+            "#f97316",
+        ];
 
         new Chart(canvas, {
             type: "bar",
@@ -81,16 +86,10 @@ const chartData = JSON.stringify({
                 labels: parsed.labels,
                 datasets: [
                     {
-                        label: "Punkte",
+                        label: "Punkte (Top 8 Turniere)",
                         data: parsed.points,
-                        backgroundColor: parsed.points.map((p: number) =>
-                            p >= maxPoints * 0.8
-                                ? "#10b981"
-                                : p >= maxPoints * 0.5
-                                  ? "#3b82f6"
-                                  : p >= maxPoints * 0.3
-                                    ? "#f59e0b"
-                                    : "#ef4444",
+                        backgroundColor: parsed.points.map((_: number, i: number) =>
+                            PLAYER_COLORS[i % PLAYER_COLORS.length],
                         ),
                         borderWidth: 1,
                         borderColor: "#fff",
@@ -106,10 +105,10 @@ const chartData = JSON.stringify({
                 scales: {
                     x: {
                         beginAtZero: true,
-                        title: { display: true, text: "Punkte" },
+                        title: { display: true, text: "Punkte (Top 8 Turniere)" },
                     },
                     y: {
-                        ticks: { font: { size: 11 } },
+                        ticks: { font: { size: 12 } },
                     },
                 },
                 plugins: {
@@ -118,6 +117,12 @@ const chartData = JSON.stringify({
                         callbacks: {
                             afterLabel: (ctx) => parsed.records[ctx.dataIndex],
                         },
+                    },
+                    datalabels: {
+                        color: "#fff",
+                        font: { weight: "bold" as const, size: 11 },
+                        anchor: "center" as const,
+                        align: "center" as const,
                     },
                 },
             },
