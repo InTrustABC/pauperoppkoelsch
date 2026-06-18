@@ -15,10 +15,12 @@ interface Props {
 
 const { data, title = "Meta Breakdown" } = Astro.props;
 
-// Top 20 + "Other"
+// Top slices + "Other"
+const slicesCutoff = 30;
+const labelCutoff = 10;
 const sorted = [...data].sort((a, b) => b.total_count - a.total_count);
-const top = sorted.slice(0, 20);
-const rest = sorted.slice(20);
+const top = sorted.slice(0, slicesCutoff);
+const rest = sorted.slice(slicesCutoff);
 
 if (rest.length > 0) {
     top.push({
@@ -28,19 +30,42 @@ if (rest.length > 0) {
     });
 }
 
+const totalCount = top.reduce((s, d) => s + d.total_count, 0);
+
 const chartData = JSON.stringify({
     labels: top.map((d) => d.deck_archetype),
     counts: top.map((d) => d.total_count),
+    totalCount,
+    labelCutoff,
 });
 ---
 
-<div class="chart-container">
-    <h3 class="chart-title">{title}</h3>
-    <canvas
-        id="metaBreakdownChart"
-        data-chart={chartData}
-        width="500"
-        height="500"></canvas>
+<div class="chart-wrapper">
+    <div class="chart-container">
+        <h3 class="chart-title">{title}</h3>
+        <canvas
+            id="metaBreakdownChart"
+            data-chart={chartData}
+            width="500"
+            height="500"></canvas>
+    </div>
+    <div class="legend-table-container">
+        <table class="legend-table">
+            <thead>
+                <tr><th></th><th>Deck</th><th>Count</th><th>%</th></tr>
+            </thead>
+            <tbody>
+                {top.map((d, i) => (
+                    <tr>
+                        <td><span class="legend-swatch" data-index={i}></span></td>
+                        <td>{d.deck_archetype}</td>
+                        <td class="num">{d.total_count}</td>
+                        <td class="num">{((d.total_count / totalCount) * 100).toFixed(1)}%</td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <script>
@@ -74,17 +99,18 @@ const chartData = JSON.stringify({
         const isMobile = window.innerWidth <= 640;
 
         const colors = [
-            "#3b82f6",
-            "#ef4444",
-            "#10b981",
-            "#f59e0b",
-            "#8b5cf6",
-            "#ec4899",
-            "#06b6d4",
-            "#84cc16",
-            "#f97316",
-            "#6366f1",
-            "#9ca3af",
+            "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
+            "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
+            "#14b8a6", "#e11d48", "#a855f7", "#eab308", "#22c55e",
+            "#0ea5e9", "#f43f5e", "#d946ef", "#64748b", "#fb923c",
+            "#4ade80", "#2dd4bf", "#facc15", "#a78bfa", "#38bdf8",
+            "#c084fc", "#fbbf24", "#34d399", "#f472b6", "#818cf8",
+            "#fb7185", "#a3e635", "#67e8f9", "#fca5a5", "#86efac",
+            "#fde047", "#c4b5fd", "#5eead4", "#fdba74", "#93c5fd",
+            "#f9a8d4", "#bef264", "#99f6e4", "#fef08a", "#ddd6fe",
+            "#a5f3fc", "#fed7aa", "#bbf7d0", "#fecdd3", "#e9d5ff",
+            "#cffafe", "#ffedd5", "#dcfce7", "#ffe4e6", "#f3e8ff",
+            "#ecfeff", "#fff7ed", "#f0fdf4", "#fff1f2", "#faf5ff",
         ];
 
         // Custom plugin to draw connector lines from slice to outside label (desktop only)
@@ -98,6 +124,7 @@ const chartData = JSON.stringify({
 
                 meta.data.forEach((arc: any, i: number) => {
                     if (!chart.getDataVisibility(i)) return;
+                    if (i >= parsed.labelCutoff) return;
 
                     const centerX = arc.x;
                     const centerY = arc.y;
@@ -131,7 +158,7 @@ const chartData = JSON.stringify({
                 datasets: [
                     {
                         data: parsed.counts,
-                        backgroundColor: colors.slice(0, parsed.labels.length),
+                        backgroundColor: parsed.labels.map((_: string, i: number) => colors[i % colors.length]),
                         borderWidth: 2,
                         borderColor: "#fff",
                     },
@@ -154,14 +181,7 @@ const chartData = JSON.stringify({
                 },
                 plugins: {
                     legend: {
-                        display: isMobile,
-                        position: "bottom",
-                        labels: {
-                            padding: 12,
-                            usePointStyle: true,
-                            pointStyle: "circle",
-                            font: { size: 10 },
-                        },
+                        display: false,
                     },
                     tooltip: {
                         callbacks: {
@@ -197,6 +217,7 @@ const chartData = JSON.stringify({
                                               : a,
                                       0,
                                   );
+                                  if ((value / total) * 100 < 5) return "";
                                   return `${((value / total) * 100).toFixed(1)}%`;
                               },
                           }
@@ -224,21 +245,39 @@ const chartData = JSON.stringify({
                                   const pct = ((value / total) * 100).toFixed(
                                       1,
                                   );
+                                  if (ctx.dataIndex >= parsed.labelCutoff) return "";
                                   return `${ctx.chart.data.labels[ctx.dataIndex]}\n${pct}%`;
                               },
                           },
                 },
             },
         });
+
+        // Color the legend swatches
+        const swatches = document.querySelectorAll<HTMLElement>(".legend-swatch");
+        const bgColors = colors.concat(
+            Array(Math.max(0, parsed.labels.length - colors.length)).fill("#9ca3af")
+        );
+        swatches.forEach((el) => {
+            const idx = parseInt(el.dataset.index || "0", 10);
+            el.style.backgroundColor = bgColors[idx % bgColors.length];
+        });
     });
 </script>
 
 <style>
+    .chart-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.5rem;
+        width: 100%;
+    }
     .chart-container {
         position: relative;
         width: 100%;
-        max-width: 800px;
-        height: 550px;
+        max-width: 700px;
+        height: 500px;
         margin: 0 auto;
     }
     .chart-title {
@@ -247,9 +286,46 @@ const chartData = JSON.stringify({
         font-size: 1.1rem;
         font-weight: 600;
     }
+    .legend-table-container {
+        width: 100%;
+        max-width: 700px;
+        max-height: 350px;
+        overflow-y: auto;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+    }
+    .legend-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.82rem;
+    }
+    .legend-table thead {
+        position: sticky;
+        top: 0;
+        background: #f9fafb;
+    }
+    .legend-table th,
+    .legend-table td {
+        padding: 0.35rem 0.6rem;
+        text-align: left;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    .legend-table .num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+    .legend-swatch {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+    }
     @media (max-width: 640px) {
         .chart-container {
-            height: 480px;
+            height: 350px;
+        }
+        .legend-table-container {
+            max-height: 250px;
         }
     }
 </style>
