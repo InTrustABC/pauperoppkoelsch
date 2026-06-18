@@ -1,4 +1,5 @@
 import postgres from "postgres";
+import { consolidatePlayerLeaderboard, consolidateBest8Leaderboard } from "./player-aliases";
 
 // --- Connection (reuses same pattern as db.ts) ---
 
@@ -142,7 +143,7 @@ export async function getPlayerLeaderboard(
     HAVING SUM(ps.wins_swiss) + SUM(ps.losses_swiss) + SUM(ps.draws) >= ${minGames}
     ORDER BY points DESC, win_rate DESC
   `;
-  return rows;
+  return consolidatePlayerLeaderboard(rows);
 }
 
 /**
@@ -241,7 +242,7 @@ export async function getPlayerLeaderboardBySeason(keyword: string): Promise<Pla
     GROUP BY ps.player_name
     ORDER BY points DESC, win_rate DESC
   `;
-  return rows;
+  return consolidatePlayerLeaderboard(rows);
 }
 
 /**
@@ -358,7 +359,7 @@ export async function getBest8LeaderboardBySeason(keyword: string): Promise<Best
     ORDER BY b.best8_points DESC, b.best8_wins DESC
     LIMIT 8
   `;
-  return rows;
+  return consolidateBest8Leaderboard(rows);
 }
 
 /**
