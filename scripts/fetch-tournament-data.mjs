@@ -1,15 +1,15 @@
 /**
  * fetch-tournament-data.mjs
  *
- * Fetches tournament data from the SpiceRack API, resolves deck archetypes
- * via the v1 decklists endpoint, enriches player stats with tiebreaker data
- * from the v1 standings endpoint, and stores everything in the Supabase
+ * Fetches tournament data from the Melee.gg API, resolves deck archetypes
+ * from standings decklists, and stores everything in the Supabase
  * PostgreSQL database.
  *
  * Endpoints used:
- *   1. GET /api/export-decklists/          — public tournament export (base data)
- *   2. GET /api/v1/magic-events/{id}/decklists/       — deck archetypes
- *   3. GET /api/v1/magic-events/{id}/current_standings/ — tiebreakers & ranks
+ *   1. GET /api/tournament/list              — paginated tournament list
+ *   2. GET /api/standing/list/current/{id}   — final standings (W-L-D + decklist names)
+ *
+ * Auth: Basic authentication (MELEE_API_CLIENT_ID:MELEE_API_CLIENT_SECRET)
  *
  * Run manually:   node scripts/fetch-tournament-data.mjs
  * Run by CI:      GitHub Actions (daily at 06:00 UTC)
@@ -20,14 +20,21 @@ import postgres from "postgres";
 // --- Config ---
 
 const DATABASE_URL = process.env.DATABASE_URL;
-const SPICERACK_API_KEY = process.env.SPICERACK_API_KEY;
-const API_BASE = "https://api.spicerack.gg";
+const MELEE_CLIENT_ID = process.env.MELEE_API_CLIENT_ID;
+const MELEE_CLIENT_SECRET = process.env.MELEE_API_CLIENT_SECRET;
 const NUM_DAYS = 360; // Fetch 360 days to keep a good history window
 
 if (!DATABASE_URL) {
     console.error("❌ DATABASE_URL is not set");
     process.exit(1);
 }
+
+if (!MELEE_CLIENT_ID || !MELEE_CLIENT_SECRET) {
+    console.error("❌ MELEE_API_CLIENT_ID and MELEE_API_CLIENT_SECRET must be set");
+    process.exit(1);
+}
+
+const AUTH_HEADER = "Basic " + Buffer.from(`${MELEE_CLIENT_ID}:${MELEE_CLIENT_SECRET}`).toString("base64");
 
 const sql = postgres(DATABASE_URL, {
     prepare: false,
@@ -159,160 +166,161 @@ async function ensureTables() {
 
 // --- API request helpers ---
 
-/** Headers for the v1 API (X-API-Key auth) */
-function v1Headers() {
-    const headers = { "Content-Type": "application/json" };
-    if (SPICERACK_API_KEY) {
-        headers["X-API-Key"] = SPICERACK_API_KEY;
-    }
-    return headers;
-}
+const REQUEST_DELAY_MS = 300;
 
-/** Headers for the public export endpoint (Bearer auth) */
-function exportHeaders() {
-    const headers = { "Content-Type": "application/json" };
-    if (SPICERACK_API_KEY) {
-        headers["Authorization"] = `Bearer ${SPICERACK_API_KEY}`;
-    }
-    return headers;
-}
-
-// --- Fetch tournament list from the public export endpoint ---
-
-async function fetchTournaments() {
-    const url = `${API_BASE}/api/export-decklists/?num_days=${NUM_DAYS}&event_format=Pauper&organization_id=8703`;
-
-    console.log(`📡 Fetching tournaments from SpiceRack (last ${NUM_DAYS} days)...`);
-    const response = await fetch(url, { method: "GET", headers: exportHeaders() });
-
-    if (!response.ok) {
-        throw new Error(`SpiceRack export API error: ${response.status} ${response.statusText}`);
+async function meleeGet(path, params = {}) {
+    const url = new URL(`https://melee.gg${path}`);
+    for (const [k, v] of Object.entries(params)) {
+        url.searchParams.set(k, v);
     }
 
-    const data = await response.json();
-    console.log(`📦 Fetched ${data.length} tournaments`);
-    return data;
+    const res = await fetch(url.toString(), {
+        headers: { Authorization: AUTH_HEADER },
+    });
+
+    if (res.status === 429) {
+        console.warn("  ⚠ Rate limited (429). Waiting 10s...");
+        await new Promise((r) => setTimeout(r, 10000));
+        return meleeGet(path, params); // Retry once
+    }
+
+    if (!res.ok) {
+        throw new Error(`Melee API error: ${res.status} ${res.statusText} for ${path}`);
+    }
+
+    return res.json();
 }
 
-// --- Fetch event decklists (with archetype) from v1 API ---
+/**
+ * Fetch all pages of a paginated Melee endpoint.
+ * Returns the full array of Content items.
+ */
+async function fetchAllPages(path, params = {}, pageSize = 250) {
+    const allItems = [];
+    let page = 1;
+    let hasMore = true;
 
-async function fetchEventDecklists(eventId) {
-    const url = `${API_BASE}/api/v1/magic-events/${eventId}/decklists/`;
+    while (hasMore) {
+        const data = await meleeGet(path, {
+            ...params,
+            "variables.page": page,
+            "variables.pageSize": pageSize,
+        });
 
-    try {
-        const response = await fetch(url, { method: "GET", headers: v1Headers() });
-
-        if (!response.ok) {
-            console.warn(`  ⚠ Could not fetch decklists for event ${eventId}: ${response.status}`);
-            return null;
+        if (data.Content && Array.isArray(data.Content)) {
+            allItems.push(...data.Content);
         }
 
-        return await response.json();
+        hasMore = data.HasMore === true;
+        page++;
+
+        if (hasMore) {
+            await new Promise((r) => setTimeout(r, REQUEST_DELAY_MS));
+        }
+    }
+
+    return allItems;
+}
+
+// --- Fetch tournament list from Melee.gg ---
+
+async function fetchTournaments() {
+    const startDateFrom = new Date(Date.now() - NUM_DAYS * 86400000).toISOString();
+
+    console.log(`📡 Fetching tournaments from Melee.gg (last ${NUM_DAYS} days)...`);
+    const tournaments = await fetchAllPages("/api/tournament/list", { startDateFrom });
+
+    // Only include ended tournaments
+    const ended = tournaments.filter((t) => t.Status === 4);
+    console.log(`📦 Fetched ${tournaments.length} tournaments (${ended.length} ended)`);
+    return ended;
+}
+
+// --- Fetch standings for a tournament ---
+
+async function fetchStandings(tournamentId) {
+    try {
+        const standings = await fetchAllPages(`/api/standing/list/current/${tournamentId}`);
+        return standings;
     } catch (err) {
-        console.warn(`  ⚠ Decklists fetch failed for event ${eventId}: ${err.message}`);
+        console.warn(`  ⚠ Could not fetch standings for tournament ${tournamentId}: ${err.message}`);
         return null;
     }
 }
 
 
 
-// --- Build player→archetype lookup from event decklists ---
+// --- Extract tournament metadata from Melee response ---
 
-/**
- * Decklists from the v1 API have a `name` field formatted as
- * "PlayerName - TournamentName". We parse the player name and map it to the
- * archetype. Also indexes by Moxfield public ID for fallback matching.
- *
- * Returns: { byName: { playerName: deckInfo }, byMoxfieldId: { publicId: deckInfo } }
- */
-function buildArchetypeMap(decklists) {
-    const byName = {};
-    const byMoxfieldId = {};
+function parseTournament(tournament, standings) {
+    const swissPhase = tournament.Phases?.find(
+        (p) => p.Name?.toLowerCase().includes("swiss") || p.SortOrder === 1
+    );
+    const bracketPhase = tournament.Phases?.find(
+        (p) => !p.Name?.toLowerCase().includes("swiss") && p.SortOrder > 1
+    );
 
-    if (!decklists || !Array.isArray(decklists)) return { byName, byMoxfieldId };
+    const swissRounds = swissPhase?.Rounds?.length || 0;
+    const topCut = bracketPhase?.Rounds?.length || 0;
 
-    for (const deck of decklists) {
-        if (!deck.name) continue;
+    // Derive start_date from LastPairDateTime (same day as tournament)
+    const startDate = tournament.LastPairDateTime
+        ? Math.floor(new Date(tournament.LastPairDateTime).getTime() / 1000)
+        : Math.floor(Date.now() / 1000);
 
-        // Format: "PlayerName - TournamentName"
-        const separatorIdx = deck.name.indexOf(" - ");
-        const playerName =
-            separatorIdx > 0
-                ? deck.name.substring(0, separatorIdx).trim()
-                : deck.name.trim();
+    return {
+        tid: String(tournament.ID),
+        tournamentName: tournament.Name,
+        format: tournament.Formats?.[0] || "Pauper",
+        bracketUrl: `https://melee.gg/Tournament/View/${tournament.ID}`,
+        players: standings?.length || 0,
+        startDate,
+        swissRounds,
+        topCut,
+    };
+}
 
-        const info = {
-            archetype: deck.archetype || null,
-            moxfieldPublicId: deck.moxfield_public_id || null,
-            deckImageUrl: deck.deck_image_url || null,
-            decklistId: deck.id,
+// --- Parse standings into player stats ---
+
+function parseStandings(standings) {
+    if (!standings || !Array.isArray(standings)) return [];
+
+    return standings.map((s) => {
+        const playerName = s.Team?.Players?.[0]?.Name || s.Team?.Players?.[0]?.DisplayName || "Unknown";
+        const decklistInfo = s.Decklists?.[0];
+        const deckArchetype = decklistInfo?.DecklistName || "Unknown";
+        const decklistUrl = decklistInfo?.DecklistId
+            ? `https://melee.gg/Decklist/View/${decklistInfo.DecklistId}`
+            : null;
+
+        return {
+            playerName,
+            winsSwiss: s.MatchWins || 0,
+            lossesSwiss: s.MatchLosses || 0,
+            draws: s.MatchDraws || 0,
+            winsBracket: 0,
+            lossesBracket: 0,
+            decklist: decklistUrl,
+            deckArchetype,
         };
-
-        byName[playerName] = info;
-
-        if (deck.moxfield_public_id) {
-            byMoxfieldId[deck.moxfield_public_id] = info;
-        }
-    }
-
-    return { byName, byMoxfieldId };
-}
-
-
-
-// --- Resolve deck archetype with fallback chain ---
-
-function resolveArchetype(player, archetypeMap) {
-    const { byName, byMoxfieldId } = archetypeMap;
-
-    // 1. Exact name match
-    if (byName[player.name]?.archetype) {
-        return byName[player.name].archetype;
-    }
-
-    // 2. Case-insensitive / partial name match
-    const playerLower = player.name.toLowerCase();
-    for (const [mapName, info] of Object.entries(byName)) {
-        if (!info.archetype) continue;
-        const mapLower = mapName.toLowerCase();
-        if (mapLower.startsWith(playerLower) || playerLower.startsWith(mapLower)) {
-            return info.archetype;
-        }
-    }
-
-    // 3. Match by Moxfield public ID extracted from the decklist URL
-    if (player.decklist) {
-        const publicId = extractMoxfieldPublicId(player.decklist);
-        if (publicId && byMoxfieldId[publicId]?.archetype) {
-            return byMoxfieldId[publicId].archetype;
-        }
-    }
-
-    return "Unknown";
-}
-
-/** Extract the Moxfield public ID from a deck URL */
-function extractMoxfieldPublicId(url) {
-    if (!url) return null;
-    const match = url.match(/moxfield\.com\/decks\/([A-Za-z0-9_-]+)/);
-    return match ? match[1] : null;
+    });
 }
 
 // --- Store data in database ---
 
-async function storeTournament(tournament, archetypeMap) {
+async function storeTournament(tournamentData, playerStats) {
     // Upsert tournament
     await sql`
     INSERT INTO tournaments (tid, tournament_name, format, bracket_url, players, start_date, swiss_rounds, top_cut)
     VALUES (
-      ${tournament.TID},
-      ${tournament.tournamentName},
-      ${tournament.format},
-      ${tournament.bracketUrl || ""},
-      ${tournament.players},
-      ${tournament.startDate},
-      ${tournament.swissRounds},
-      ${tournament.topCut}
+      ${tournamentData.tid},
+      ${tournamentData.tournamentName},
+      ${tournamentData.format},
+      ${tournamentData.bracketUrl},
+      ${tournamentData.players},
+      ${tournamentData.startDate},
+      ${tournamentData.swissRounds},
+      ${tournamentData.topCut}
     )
     ON CONFLICT (tid) DO UPDATE SET
       tournament_name = EXCLUDED.tournament_name,
@@ -324,14 +332,10 @@ async function storeTournament(tournament, archetypeMap) {
       top_cut = EXCLUDED.top_cut
   `;
 
-    // Upsert player stats
-    const archCounts = {};
-
     // Collect all unique archetypes and upsert into deck_archetypes first
     const uniqueArchetypes = new Set();
-    for (const player of tournament.standings || []) {
-        const arch = resolveArchetype(player, archetypeMap);
-        if (arch) uniqueArchetypes.add(arch);
+    for (const player of playerStats) {
+        if (player.deckArchetype) uniqueArchetypes.add(player.deckArchetype);
     }
     for (const arch of uniqueArchetypes) {
         await sql`
@@ -340,24 +344,25 @@ async function storeTournament(tournament, archetypeMap) {
         `;
     }
 
-    for (const player of tournament.standings || []) {
-        const deckArchetype = resolveArchetype(player, archetypeMap);
+    // Upsert player stats
+    const archCounts = {};
 
+    for (const player of playerStats) {
         await sql`
       INSERT INTO player_stats (
         tid, player_name, wins_swiss, losses_swiss, draws,
         wins_bracket, losses_bracket, decklist, deck_archetype
       )
       VALUES (
-        ${tournament.TID},
-        ${player.name},
+        ${tournamentData.tid},
+        ${player.playerName},
         ${player.winsSwiss},
         ${player.lossesSwiss},
         ${player.draws},
-        ${player.winsBracket || 0},
-        ${player.lossesBracket || 0},
+        ${player.winsBracket},
+        ${player.lossesBracket},
         ${player.decklist || null},
-        ${deckArchetype}
+        ${player.deckArchetype}
       )
       ON CONFLICT (tid, player_name) DO UPDATE SET
         wins_swiss = EXCLUDED.wins_swiss,
@@ -370,19 +375,19 @@ async function storeTournament(tournament, archetypeMap) {
     `;
 
         // Count archetype occurrences for meta snapshot
-        archCounts[deckArchetype] = (archCounts[deckArchetype] || 0) + 1;
+        archCounts[player.deckArchetype] = (archCounts[player.deckArchetype] || 0) + 1;
     }
 
     // Upsert meta snapshots
-    const totalPlayers = tournament.standings?.length || tournament.players || 1;
-    const snapshotDate = new Date(tournament.startDate * 1000).toISOString().split("T")[0];
+    const totalPlayers = playerStats.length || tournamentData.players || 1;
+    const snapshotDate = new Date(tournamentData.startDate * 1000).toISOString().split("T")[0];
 
     for (const [archetype, count] of Object.entries(archCounts)) {
         const percentage = ((count / totalPlayers) * 100).toFixed(2);
 
         await sql`
       INSERT INTO meta_snapshots (snapshot_date, tid, deck_archetype, count, percentage_of_field, player_count)
-      VALUES (${snapshotDate}, ${tournament.TID}, ${archetype}, ${count}, ${percentage}, ${totalPlayers})
+      VALUES (${snapshotDate}, ${tournamentData.tid}, ${archetype}, ${count}, ${percentage}, ${totalPlayers})
       ON CONFLICT (tid, deck_archetype) DO UPDATE SET
         snapshot_date = EXCLUDED.snapshot_date,
         count = EXCLUDED.count,
@@ -419,8 +424,12 @@ async function main() {
             const existingSet = new Set(existingTids.map((r) => r.tid));
 
             tournamentsToFetch = tournaments.filter((t) => {
-                const isNew = !existingSet.has(t.TID);
-                const isRecent = t.startDate >= oneWeekAgo;
+                const tid = String(t.ID);
+                const isNew = !existingSet.has(tid);
+                const startDate = t.LastPairDateTime
+                    ? Math.floor(new Date(t.LastPairDateTime).getTime() / 1000)
+                    : 0;
+                const isRecent = startDate >= oneWeekAgo;
                 return isNew || isRecent;
             });
 
@@ -439,30 +448,35 @@ async function main() {
         let stored = 0;
         for (const tournament of tournamentsToFetch) {
             try {
-                const tid = tournament.TID;
+                const tournamentId = tournament.ID;
 
-                // Fetch decklists (archetypes)
-                console.log(`  📋 Fetching decklists for ${tid}...`);
-                const decklists = await fetchEventDecklists(tid);
+                // Fetch standings (includes embedded decklists with archetype names)
+                console.log(`  📋 Fetching standings for ${tournament.Name} (${tournamentId})...`);
+                const standings = await fetchStandings(tournamentId);
 
-                // Build lookup map
-                const archetypeMap = buildArchetypeMap(decklists);
+                if (!standings || standings.length === 0) {
+                    console.log(`  ⚠ No standings found for ${tournamentId}, skipping.`);
+                    continue;
+                }
 
-                const archetypeCount = Object.values(archetypeMap.byName).filter(
-                    (d) => d.archetype
-                ).length;
-                console.log(`    → Found ${archetypeCount} archetypes from decklists API`);
+                // Parse tournament metadata
+                const tournamentData = parseTournament(tournament, standings);
 
-                await storeTournament(tournament, archetypeMap);
+                // Parse player stats from standings
+                const playerStats = parseStandings(standings);
+
+                console.log(`    → ${playerStats.length} players, ${tournamentData.swissRounds} Swiss rounds`);
+
+                await storeTournament(tournamentData, playerStats);
                 stored++;
                 console.log(
-                    `  ✓ ${tournament.tournamentName} (${tid}) — ${tournament.standings?.length || 0} players`
+                    `  ✓ ${tournament.Name} (${tournamentId}) — ${playerStats.length} players`
                 );
 
                 // Small delay to be nice to the API
-                await new Promise((r) => setTimeout(r, 300));
+                await new Promise((r) => setTimeout(r, REQUEST_DELAY_MS));
             } catch (err) {
-                console.error(`  ✗ Failed to store ${tournament.TID}:`, err.message);
+                console.error(`  ✗ Failed to store ${tournament.ID}:`, err.message);
             }
         }
 

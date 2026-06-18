@@ -8,7 +8,8 @@ on:
 
 env:
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
-  SPICERACK_API_KEY: ${{ secrets.SPICERACK_API_KEY }}
+  MELEE_API_CLIENT_ID: ${{ secrets.MELEE_API_CLIENT_ID }}
+  MELEE_API_CLIENT_SECRET: ${{ secrets.MELEE_API_CLIENT_SECRET }}
 
 jobs:
   fetch-and-store:
