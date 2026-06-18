@@ -357,9 +357,8 @@ export async function getBest8LeaderboardBySeason(keyword: string): Promise<Best
     FROM best8 b
     JOIN total_played tp ON b.player_name = tp.player_name
     ORDER BY b.best8_points DESC, b.best8_wins DESC
-    LIMIT 8
   `;
-  return consolidateBest8Leaderboard(rows);
+  return consolidateBest8Leaderboard(rows).slice(0, 8);
 }
 
 /**
