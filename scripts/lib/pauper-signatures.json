@@ -1,0 +1,210 @@
+{
+  "Mono-Red": {
+    "signatures": ["Monastery Swiftspear", "Kuldotha Rebirth", "Goblin Blast-Runner", "Experimental Synthesizer", "Voldaren Epicure"],
+    "weight": 1
+  },
+  "Mono-Red Synthesizer": {
+    "signatures": ["Experimental Synthesizer", "Goblin Blast-Runner", "Kuldotha Rebirth", "Monastery Swiftspear", "Implement of Combustion"],
+    "weight": 1
+  },
+  "Burn": {
+    "signatures": ["Lava Spike", "Rift Bolt", "Searing Blaze", "Thermo-Alchemist", "Curse of the Pierced Heart"],
+    "weight": 1
+  },
+  "Mono-Red Madness": {
+    "signatures": ["Blazing Rootwalla", "Fiery Temper", "Faithless Looting", "Kitchen Imp", "Burning Inquiry"],
+    "weight": 1
+  },
+  "Grixis Affinity": {
+    "signatures": ["Myr Enforcer", "Frogmite", "Thoughtcast", "Galvanic Blast", "Deadly Dispute"],
+    "weight": 1
+  },
+  "Dimir Affinity": {
+    "signatures": ["Myr Enforcer", "Frogmite", "Thoughtcast", "Deadly Dispute", "Gurmag Angler"],
+    "weight": 1
+  },
+  "Rakdos Affinity": {
+    "signatures": ["Myr Enforcer", "Frogmite", "Galvanic Blast", "Deadly Dispute", "Krark-Clan Shaman"],
+    "weight": 1
+  },
+  "Azorius Affinity": {
+    "signatures": ["Myr Enforcer", "Frogmite", "Thoughtcast", "Metallic Rebuke", "Kor Skyfisher"],
+    "weight": 1
+  },
+  "Esper Affinity": {
+    "signatures": ["Myr Enforcer", "Frogmite", "Thoughtcast", "Deadly Dispute", "Metallic Rebuke"],
+    "weight": 1
+  },
+  "Dimir Terror": {
+    "signatures": ["Tolarian Terror", "Gurmag Angler", "Mental Note", "Thought Scour", "Snuff Out"],
+    "weight": 1
+  },
+  "Izzet Terror": {
+    "signatures": ["Tolarian Terror", "Serpentine Curve", "Lightning Bolt", "Thought Scour", "Lórien Revealed"],
+    "weight": 1
+  },
+  "Blue Terror": {
+    "signatures": ["Tolarian Terror", "Thought Scour", "Mental Note", "Counterspell", "Consider"],
+    "weight": 1
+  },
+  "Mono-Blue Faeries": {
+    "signatures": ["Spellstutter Sprite", "Ninja of the Deep Hours", "Counterspell", "Faerie Seer", "Moon-Circuit Hacker"],
+    "weight": 1
+  },
+  "Mono-Blue Delver": {
+    "signatures": ["Delver of Secrets", "Spellstutter Sprite", "Counterspell", "Ninja of the Deep Hours", "Snap"],
+    "weight": 1
+  },
+  "Dimir Faeries": {
+    "signatures": ["Spellstutter Sprite", "Ninja of the Deep Hours", "Cast Down", "Snuff Out", "Faerie Seer"],
+    "weight": 1
+  },
+  "Orzhov Glintblade": {
+    "signatures": ["Glint Hawk", "Kor Skyfisher", "Refurbished Familiar", "Lembas", "Thraben Inspector"],
+    "weight": 1
+  },
+  "Glintblade": {
+    "signatures": ["Glint Hawk", "Kor Skyfisher", "Refurbished Familiar", "Lembas", "Thraben Inspector"],
+    "weight": 1
+  },
+  "Boros Synthesizer": {
+    "signatures": ["Experimental Synthesizer", "Glint Hawk", "Kor Skyfisher", "Galvanic Blast", "Thraben Inspector"],
+    "weight": 1
+  },
+  "Mardu Synthesizer": {
+    "signatures": ["Experimental Synthesizer", "Glint Hawk", "Kor Skyfisher", "Deadly Dispute", "Galvanic Blast"],
+    "weight": 1
+  },
+  "Caw-Gates": {
+    "signatures": ["Squadron Hawk", "Basilisk Gate", "Citadel Gate", "Brainstorm", "Sacred Cat"],
+    "weight": 1
+  },
+  "Azorius Cawgate": {
+    "signatures": ["Squadron Hawk", "Basilisk Gate", "Citadel Gate", "Brainstorm", "Journey to Nowhere"],
+    "weight": 1
+  },
+  "Tron": {
+    "signatures": ["Urza's Tower", "Urza's Mine", "Urza's Power Plant", "Mulldrifter", "Ghostly Flicker"],
+    "weight": 1
+  },
+  "Ephemerate Tron": {
+    "signatures": ["Urza's Tower", "Urza's Mine", "Urza's Power Plant", "Ephemerate", "Mulldrifter"],
+    "weight": 1
+  },
+  "Familiars": {
+    "signatures": ["Sunscape Familiar", "Nightscape Familiar", "Ghostly Flicker", "Mnemonic Wall", "God-Pharaoh's Faithful"],
+    "weight": 1
+  },
+  "Bogles": {
+    "signatures": ["Slippery Bogle", "Gladecover Scout", "Ethereal Armor", "Rancor", "Armadillo Cloak"],
+    "weight": 1
+  },
+  "Elves": {
+    "signatures": ["Quirion Ranger", "Birchlore Rangers", "Priest of Titania", "Timberwatch Elf", "Wellwisher"],
+    "weight": 1
+  },
+  "Mono-Green Elves": {
+    "signatures": ["Quirion Ranger", "Birchlore Rangers", "Priest of Titania", "Timberwatch Elf", "Lead the Stampede"],
+    "weight": 1
+  },
+  "Gruul Ponza": {
+    "signatures": ["Thermokarst", "Mwonvuli Acid-Moss", "Arbor Elf", "Utopia Sprawl", "Boarding Party"],
+    "weight": 1
+  },
+  "Ruby Storm": {
+    "signatures": ["Rite of Flame", "Grapeshot", "Manamorphose", "Desperate Ritual", "Galvanic Relay"],
+    "weight": 1
+  },
+  "Gruul Ruby Storm": {
+    "signatures": ["Rite of Flame", "Grapeshot", "Manamorphose", "Desperate Ritual", "Utopia Sprawl"],
+    "weight": 1
+  },
+  "Poison Storm": {
+    "signatures": ["Rite of Flame", "Manamorphose", "Desperate Ritual", "Flare of Duplication", "Virulent Wound"],
+    "weight": 1
+  },
+  "Goblins": {
+    "signatures": ["Goblin Matron", "Goblin Sledder", "Goblin Bushwhacker", "Mogg War Marshal", "Sparksmith"],
+    "weight": 1
+  },
+  "Mono-White Heroic": {
+    "signatures": ["Lagonna-Band Trailblazer", "Favored Hoplite", "Ethereal Armor", "Hyena Umbra", "Cartouche of Solidarity"],
+    "weight": 1
+  },
+  "Mono-White Aggro": {
+    "signatures": ["Thraben Inspector", "Sacred Cat", "Raffine's Informant", "Kor Skyfisher", "Journey to Nowhere"],
+    "weight": 1
+  },
+  "White Weenie": {
+    "signatures": ["Thraben Inspector", "Sacred Cat", "War Falcon", "Kor Skyfisher", "Rally the Peasants"],
+    "weight": 1
+  },
+  "Gardens": {
+    "signatures": ["Khalni Garden", "Deadly Dispute", "Ichor Wellspring", "Makeshift Munitions", "Reckoner's Bargain"],
+    "weight": 1
+  },
+  "Golgari Gardens": {
+    "signatures": ["Khalni Garden", "Deadly Dispute", "Ichor Wellspring", "Reckoner's Bargain", "Blood Fountain"],
+    "weight": 1
+  },
+  "Mono-Black Gardens": {
+    "signatures": ["Khalni Garden", "Deadly Dispute", "Blood Fountain", "Ichor Wellspring", "Vampire Sovereign"],
+    "weight": 1
+  },
+  "Pestilence": {
+    "signatures": ["Pestilence", "Guardian of the Guildpact", "Pristine Talisman", "Crypt Rats", "Crypt Incursion"],
+    "weight": 1
+  },
+  "Golgari Pestilence": {
+    "signatures": ["Pestilence", "Crypt Rats", "Penumbra Spider", "Utopia Sprawl", "Abundant Growth"],
+    "weight": 1
+  },
+  "Dredge": {
+    "signatures": ["Stinkweed Imp", "Exhume", "Dragon Breath", "Gurmag Angler", "Satyr Wayfinder"],
+    "weight": 1
+  },
+  "Spy Combo": {
+    "signatures": ["Balustrade Spy", "Undercity Informer", "Haunted Mire", "Songs of the Damned", "Lotleth Giant"],
+    "weight": 1
+  },
+  "Golgari Spy Combo": {
+    "signatures": ["Balustrade Spy", "Undercity Informer", "Lotleth Giant", "Songs of the Damned", "Haunted Mire"],
+    "weight": 1
+  },
+  "Jund Spy Combo": {
+    "signatures": ["Balustrade Spy", "Undercity Informer", "Songs of the Damned", "Wild Cantor", "Simian Spirit Guide"],
+    "weight": 1
+  },
+  "Turbo Fog": {
+    "signatures": ["Moment's Peace", "Tangle", "Jace's Erasure", "Brainstorm", "Stream of Thought"],
+    "weight": 1
+  },
+  "Jeskai Ephemerate": {
+    "signatures": ["Ephemerate", "Mulldrifter", "Archaeomancer", "Lightning Bolt", "Kor Skyfisher"],
+    "weight": 1
+  },
+  "Golgari Aristocrats": {
+    "signatures": ["Carrion Feeder", "Young Wolf", "Blisterpod", "Nested Shambler", "Deadly Dispute"],
+    "weight": 1
+  },
+  "Mono-Green Aggro": {
+    "signatures": ["Rancor", "Burning-Tree Emissary", "Nettle Sentinel", "Skarrgan Pit-Skulk", "Savage Swipe"],
+    "weight": 1
+  },
+  "Izzet Skred": {
+    "signatures": ["Skred", "Snow-Covered Mountain", "Snow-Covered Island", "Lightning Bolt", "Augur of Bolas"],
+    "weight": 1
+  },
+  "Rakdos Reanimator": {
+    "signatures": ["Exhume", "Ulamog's Crusher", "Faithless Looting", "Dragon Breath", "Dark Ritual"],
+    "weight": 1
+  },
+  "Gruul Ramp": {
+    "signatures": ["Arbor Elf", "Utopia Sprawl", "Boarding Party", "Annoyed Altisaur", "Writhing Chrysalis"],
+    "weight": 1
+  },
+  "High Tide Combo": {
+    "signatures": ["High Tide", "Snap", "Archaeomancer", "Ghostly Flicker", "Compulsive Research"],
+    "weight": 1
+  }
+}

@@ -16,6 +16,7 @@
  */
 
 import postgres from "postgres";
+import { resolveArchetypeFromDecklist } from "./lib/archetype-classifier.mjs";
 
 // --- Config ---
 
@@ -248,6 +249,48 @@ async function fetchStandings(tournamentId) {
     }
 }
 
+// --- Fetch a single full decklist by its GUID ---
+
+async function fetchDecklist(decklistId) {
+    try {
+        const data = await meleeGet(`/api/decklist/${decklistId}`);
+        return data;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Resolve "Unknown" archetypes for player stats that have a DecklistId.
+ * Fetches full decklist from Melee.gg and uses name fields + card classifier.
+ */
+async function resolveUnknowns(playerStats) {
+    const unknowns = playerStats.filter(
+        (p) => p.deckArchetype === "Unknown" && p.decklistId
+    );
+
+    if (unknowns.length === 0) return;
+
+    console.log(`    🔍 Resolving ${unknowns.length} Unknown archetypes...`);
+
+    for (const player of unknowns) {
+        const fullDecklist = await fetchDecklist(player.decklistId);
+        if (!fullDecklist) continue;
+
+        const result = resolveArchetypeFromDecklist(fullDecklist);
+        if (result.archetype !== "Unknown") {
+            player.deckArchetype = result.archetype;
+        }
+
+        await new Promise((r) => setTimeout(r, REQUEST_DELAY_MS));
+    }
+
+    const resolved = unknowns.filter((p) => p.deckArchetype !== "Unknown").length;
+    if (resolved > 0) {
+        console.log(`    ✓ Resolved ${resolved}/${unknowns.length} Unknown archetypes`);
+    }
+}
+
 
 
 // --- Extract tournament metadata from Melee response ---
@@ -289,8 +332,9 @@ function parseStandings(standings) {
         const playerName = s.Team?.Players?.[0]?.Name || s.Team?.Players?.[0]?.DisplayName || "Unknown";
         const decklistInfo = s.Decklists?.[0];
         const deckArchetype = decklistInfo?.DecklistName || "Unknown";
-        const decklistUrl = decklistInfo?.DecklistId
-            ? `https://melee.gg/Decklist/View/${decklistInfo.DecklistId}`
+        const decklistId = decklistInfo?.DecklistId || null;
+        const decklistUrl = decklistId
+            ? `https://melee.gg/Decklist/View/${decklistId}`
             : null;
 
         return {
@@ -301,6 +345,7 @@ function parseStandings(standings) {
             winsBracket: 0,
             lossesBracket: 0,
             decklist: decklistUrl,
+            decklistId,
             deckArchetype,
         };
     });
@@ -466,6 +511,9 @@ async function main() {
                 const playerStats = parseStandings(standings);
 
                 console.log(`    → ${playerStats.length} players, ${tournamentData.swissRounds} Swiss rounds`);
+
+                // Resolve Unknown archetypes via full decklist fetch + classifier
+                await resolveUnknowns(playerStats);
 
                 await storeTournament(tournamentData, playerStats);
                 stored++;
