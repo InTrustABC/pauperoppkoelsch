@@ -1,5 +1,5 @@
 import postgres from "postgres";
-import { consolidatePlayerLeaderboard, consolidateBest8Leaderboard } from "./player-aliases";
+import { consolidatePlayerLeaderboard, computeBest8Leaderboard } from "./player-aliases";
 
 // --- Connection (reuses same pattern as db.ts) ---
 
@@ -298,67 +298,32 @@ export async function getOverviewStatsBySeason(keyword: string) {
  * Each player's score = sum of their top-N tournament points (wins*3 + draws),
  * where N = min(8, tournaments_played). Tie-break: best8_wins DESC.
  */
+export interface TournamentScore {
+  player_name: string;
+  tid: string;
+  tournament_points: number;
+  wins: number;
+  losses: number;
+  draws: number;
+}
+
 export async function getBest8LeaderboardBySeason(keyword: string): Promise<Best8LeaderboardEntry[]> {
   const db = getDb();
   const pattern = `%${keyword}%`;
 
-  const rows = await db<Best8LeaderboardEntry[]>`
-    WITH tournament_points AS (
-      SELECT
-        ps.player_name,
-        ps.tid,
-        (ps.wins_swiss * 3 + ps.draws) AS tournament_points,
-        ps.wins_swiss AS wins,
-        ps.losses_swiss AS losses,
-        ps.draws
-      FROM player_stats ps
-      JOIN tournaments t ON ps.tid = t.tid
-      WHERE t.tournament_name ILIKE ${pattern}
-    ),
-    ranked AS (
-      SELECT
-        player_name,
-        tournament_points,
-        wins,
-        losses,
-        draws,
-        ROW_NUMBER() OVER (PARTITION BY player_name ORDER BY tournament_points DESC) AS rn
-      FROM tournament_points
-    ),
-    best8 AS (
-      SELECT
-        player_name,
-        SUM(tournament_points)::int AS best8_points,
-        SUM(wins)::int AS best8_wins,
-        SUM(losses)::int AS best8_losses,
-        SUM(draws)::int AS best8_draws,
-        COUNT(*)::int AS tournaments_counted
-      FROM ranked
-      WHERE rn <= 8
-      GROUP BY player_name
-    ),
-    total_played AS (
-      SELECT
-        ps.player_name,
-        COUNT(DISTINCT ps.tid)::int AS tournaments_played
-      FROM player_stats ps
-      JOIN tournaments t ON ps.tid = t.tid
-      WHERE t.tournament_name ILIKE ${pattern}
-      GROUP BY ps.player_name
-    )
+  const rows = await db<TournamentScore[]>`
     SELECT
-      b.player_name,
-      b.best8_points,
-      b.best8_wins,
-      b.best8_losses,
-      b.best8_draws,
-      b.tournaments_counted,
-      tp.tournaments_played
-    FROM best8 b
-    JOIN total_played tp ON b.player_name = tp.player_name
-    ORDER BY b.best8_points DESC, b.best8_wins DESC
+      ps.player_name,
+      ps.tid,
+      (ps.wins_swiss * 3 + ps.draws)::int AS tournament_points,
+      ps.wins_swiss::int AS wins,
+      ps.losses_swiss::int AS losses,
+      ps.draws::int AS draws
+    FROM player_stats ps
+    JOIN tournaments t ON ps.tid = t.tid
+    WHERE t.tournament_name ILIKE ${pattern}
   `;
-  return consolidateBest8Leaderboard(rows).slice(0, 8);
+  return computeBest8Leaderboard(rows).slice(0, 8);
 }
 
 /**

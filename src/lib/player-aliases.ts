@@ -1,4 +1,4 @@
-import type { PlayerLeaderboardEntry, Best8LeaderboardEntry } from "./analytics";
+import type { PlayerLeaderboardEntry, Best8LeaderboardEntry, TournamentScore } from "./analytics";
 
 /**
  * Player alias mapping — maps variant names to a single canonical display name.
@@ -47,6 +47,7 @@ export const PLAYER_ALIASES: Record<string, string> = {
 
   // Josua Kreuzmann
   "josua k": "Josua Kreuzmann",
+  "j k": "Josua Kreuzmann",
 
   // Jorge Mingorance Moreno
   "jorge mingorance": "Jorge Mingorance Moreno",
@@ -108,34 +109,44 @@ export function consolidatePlayerLeaderboard(
 }
 
 /**
- * Consolidate a Best-8 leaderboard by merging aliased player rows.
- * Sums points/wins/losses/draws and caps tournaments_counted at 8.
+ * Compute the Best-8 leaderboard from raw per-tournament scores.
+ * Normalizes player names first, then picks each player's top 8 tournament
+ * scores to sum — so aliases are correctly merged before ranking.
  */
-export function consolidateBest8Leaderboard(
-  entries: Best8LeaderboardEntry[],
+export function computeBest8Leaderboard(
+  scores: TournamentScore[],
 ): Best8LeaderboardEntry[] {
-  const map = new Map<string, Best8LeaderboardEntry>();
+  // Group all tournament scores by canonical player name
+  const playerScores = new Map<string, TournamentScore[]>();
 
-  for (const entry of entries) {
-    const canonical = normalizePlayerName(entry.player_name);
-    const existing = map.get(canonical);
-
-    if (!existing) {
-      map.set(canonical, { ...entry, player_name: canonical });
-    } else {
-      existing.best8_points += entry.best8_points;
-      existing.best8_wins += entry.best8_wins;
-      existing.best8_losses += entry.best8_losses;
-      existing.best8_draws += entry.best8_draws;
-      existing.tournaments_counted = Math.min(
-        8,
-        existing.tournaments_counted + entry.tournaments_counted,
-      );
-      existing.tournaments_played += entry.tournaments_played;
-    }
+  for (const score of scores) {
+    const canonical = normalizePlayerName(score.player_name);
+    if (!playerScores.has(canonical)) playerScores.set(canonical, []);
+    playerScores.get(canonical)!.push(score);
   }
 
-  return [...map.values()].sort(
+  const result: Best8LeaderboardEntry[] = [];
+
+  for (const [name, allScores] of playerScores) {
+    const tournamentsPlayed = new Set(allScores.map((s) => s.tid)).size;
+
+    // Sort by tournament_points descending and take the top 8
+    const top8 = allScores
+      .sort((a, b) => b.tournament_points - a.tournament_points)
+      .slice(0, 8);
+
+    result.push({
+      player_name: name,
+      best8_points: top8.reduce((sum, s) => sum + s.tournament_points, 0),
+      best8_wins: top8.reduce((sum, s) => sum + s.wins, 0),
+      best8_losses: top8.reduce((sum, s) => sum + s.losses, 0),
+      best8_draws: top8.reduce((sum, s) => sum + s.draws, 0),
+      tournaments_counted: top8.length,
+      tournaments_played: tournamentsPlayed,
+    });
+  }
+
+  return result.sort(
     (a, b) => b.best8_points - a.best8_points || b.best8_wins - a.best8_wins,
   );
 }
