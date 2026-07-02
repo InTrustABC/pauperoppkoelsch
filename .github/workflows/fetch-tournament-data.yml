@@ -2,8 +2,8 @@ name: Fetch Tournament Data
 
 on:
   schedule:
-    # Runs daily at 06:00 UTC
     - cron: "0 6 * * *"
+      timezone: "Europe/Berlin"
   workflow_dispatch: # Allow manual trigger
 
 env:
