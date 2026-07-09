@@ -13,14 +13,34 @@ import { dirname, join } from "path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const signaturesPath = join(__dirname, "pauper-signatures.json");
+const aliasesPath = join(__dirname, "archetype-aliases.json");
 
 let signatures = null;
+let aliases = null;
 
 function loadSignatures() {
     if (!signatures) {
         signatures = JSON.parse(readFileSync(signaturesPath, "utf-8"));
     }
     return signatures;
+}
+
+function loadAliases() {
+    if (!aliases) {
+        aliases = JSON.parse(readFileSync(aliasesPath, "utf-8"));
+    }
+    return aliases;
+}
+
+/**
+ * Normalize an archetype name using the aliases mapping.
+ * Maps variant names (e.g. "Mono-Red Madness") to their canonical form ("Mono Red Madness").
+ * Returns the input unchanged if no alias exists.
+ */
+export function normalizeArchetype(name) {
+    if (!name || name === "Unknown") return name;
+    const map = loadAliases();
+    return map[name] || name;
 }
 
 /**
@@ -104,23 +124,23 @@ export function resolveArchetypeFromDecklist(fullDecklist) {
 
     // Priority 1: DecklistName
     if (fullDecklist.DecklistName && fullDecklist.DecklistName.trim()) {
-        return { archetype: fullDecklist.DecklistName.trim(), source: "DecklistName", confidence: 1 };
+        return { archetype: normalizeArchetype(fullDecklist.DecklistName.trim()), source: "DecklistName", confidence: 1 };
     }
 
     // Priority 2: Name
     if (fullDecklist.Name && fullDecklist.Name.trim()) {
-        return { archetype: fullDecklist.Name.trim(), source: "Name", confidence: 1 };
+        return { archetype: normalizeArchetype(fullDecklist.Name.trim()), source: "Name", confidence: 1 };
     }
 
     // Priority 3: AiGeneratedName
     if (fullDecklist.AiGeneratedName && fullDecklist.AiGeneratedName.trim()) {
-        return { archetype: fullDecklist.AiGeneratedName.trim(), source: "AiGeneratedName", confidence: 0.9 };
+        return { archetype: normalizeArchetype(fullDecklist.AiGeneratedName.trim()), source: "AiGeneratedName", confidence: 0.9 };
     }
 
     // Priority 4: Card-based classification
     if (fullDecklist.Records && fullDecklist.Records.length > 0) {
         const result = classifyByCards(fullDecklist.Records);
-        return { archetype: result.archetype, source: "card-classifier", confidence: result.confidence };
+        return { archetype: normalizeArchetype(result.archetype), source: "card-classifier", confidence: result.confidence };
     }
 
     return { archetype: "Unknown", source: "no-match", confidence: 0 };

@@ -16,7 +16,7 @@
  */
 
 import postgres from "postgres";
-import { resolveArchetypeFromDecklist } from "./lib/archetype-classifier.mjs";
+import { resolveArchetypeFromDecklist, normalizeArchetype } from "./lib/archetype-classifier.mjs";
 
 // --- Config ---
 
@@ -331,7 +331,8 @@ function parseStandings(standings) {
     return standings.map((s) => {
         const playerName = s.Team?.Players?.[0]?.Name || s.Team?.Players?.[0]?.DisplayName || "Unknown";
         const decklistInfo = s.Decklists?.[0];
-        const deckArchetype = decklistInfo?.DecklistName || "Unknown";
+        const rawArchetype = decklistInfo?.DecklistName || "Unknown";
+        const deckArchetype = normalizeArchetype(rawArchetype);
         const decklistId = decklistInfo?.DecklistId || null;
         const decklistUrl = decklistId
             ? `https://melee.gg/Decklist/View/${decklistId}`
