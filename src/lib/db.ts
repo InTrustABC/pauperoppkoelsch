@@ -45,6 +45,9 @@ export interface PlayerStat {
   draws: number;
   wins_bracket: number;
   losses_bracket: number;
+  omw_pct: number | null;
+  tgw_pct: number | null;
+  ogw_pct: number | null;
   decklist: string | null;
   deck_archetype: string | null;
   created_at?: string;
@@ -131,6 +134,9 @@ export async function initializeDatabase() {
       draws INTEGER NOT NULL DEFAULT 0,
       wins_bracket INTEGER NOT NULL DEFAULT 0,
       losses_bracket INTEGER NOT NULL DEFAULT 0,
+      omw_pct REAL,
+      tgw_pct REAL,
+      ogw_pct REAL,
       decklist TEXT,
       deck_archetype TEXT REFERENCES deck_archetypes(name) ON UPDATE CASCADE,
       created_at TIMESTAMPTZ DEFAULT NOW(),

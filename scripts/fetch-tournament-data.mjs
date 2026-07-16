@@ -78,6 +78,9 @@ async function ensureTables() {
       draws INTEGER NOT NULL DEFAULT 0,
       wins_bracket INTEGER NOT NULL DEFAULT 0,
       losses_bracket INTEGER NOT NULL DEFAULT 0,
+            omw_pct REAL,
+            tgw_pct REAL,
+            ogw_pct REAL,
       decklist TEXT,
       deck_archetype TEXT REFERENCES deck_archetypes(name) ON UPDATE CASCADE,
       created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -150,6 +153,9 @@ async function ensureTables() {
     // Add new columns if they don't exist (safe for re-runs on existing DBs)
     const newCols = [
         ["player_stats", "deck_archetype", "TEXT"],
+        ["player_stats", "omw_pct", "REAL"],
+        ["player_stats", "tgw_pct", "REAL"],
+        ["player_stats", "ogw_pct", "REAL"],
     ];
 
     for (const [table, col, type] of newCols) {
@@ -328,6 +334,19 @@ function parseTournament(tournament, standings) {
 function parseStandings(standings) {
     if (!standings || !Array.isArray(standings)) return [];
 
+    const parsePct = (value) => {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : null;
+    };
+
+    const pickPct = (row, keys) => {
+        for (const key of keys) {
+            const val = parsePct(row?.[key]);
+            if (val !== null) return val;
+        }
+        return null;
+    };
+
     return standings.map((s) => {
         const playerName = s.Team?.Players?.[0]?.Name || s.Team?.Players?.[0]?.DisplayName || "Unknown";
         const decklistInfo = s.Decklists?.[0];
@@ -345,6 +364,22 @@ function parseStandings(standings) {
             draws: s.MatchDraws || 0,
             winsBracket: 0,
             lossesBracket: 0,
+            omwPct: pickPct(s, [
+                "OpponentMatchWinPercentage",
+                "OMW",
+                "OpponentsMatchWinPercentage",
+            ]),
+            tgwPct: pickPct(s, [
+                "TeamGameWinPercentage",
+                "PlayerGameWinPercentage",
+                "TMW",
+                "TGW",
+            ]),
+            ogwPct: pickPct(s, [
+                "OpponentGameWinPercentage",
+                "OpponentsGameWinPercentage",
+                "OGW",
+            ]),
             decklist: decklistUrl,
             decklistId,
             deckArchetype,
@@ -397,7 +432,7 @@ async function storeTournament(tournamentData, playerStats) {
         await sql`
       INSERT INTO player_stats (
         tid, player_name, wins_swiss, losses_swiss, draws,
-        wins_bracket, losses_bracket, decklist, deck_archetype
+                wins_bracket, losses_bracket, omw_pct, tgw_pct, ogw_pct, decklist, deck_archetype
       )
       VALUES (
         ${tournamentData.tid},
@@ -407,6 +442,9 @@ async function storeTournament(tournamentData, playerStats) {
         ${player.draws},
         ${player.winsBracket},
         ${player.lossesBracket},
+                ${player.omwPct},
+                ${player.tgwPct},
+                ${player.ogwPct},
         ${player.decklist || null},
         ${player.deckArchetype}
       )
@@ -416,6 +454,9 @@ async function storeTournament(tournamentData, playerStats) {
         draws = EXCLUDED.draws,
         wins_bracket = EXCLUDED.wins_bracket,
         losses_bracket = EXCLUDED.losses_bracket,
+                omw_pct = EXCLUDED.omw_pct,
+                tgw_pct = EXCLUDED.tgw_pct,
+                ogw_pct = EXCLUDED.ogw_pct,
         decklist = EXCLUDED.decklist,
         deck_archetype = EXCLUDED.deck_archetype
     `;

@@ -60,6 +60,9 @@ export interface Best8LeaderboardEntry {
   best8_wins: number;
   best8_losses: number;
   best8_draws: number;
+  avg_omw_pct: number | null;
+  avg_tgw_pct: number | null;
+  avg_ogw_pct: number | null;
   tournaments_counted: number;
   tournaments_played: number;
 }
@@ -305,6 +308,9 @@ export interface TournamentScore {
   wins: number;
   losses: number;
   draws: number;
+  omw_pct: number | null;
+  tgw_pct: number | null;
+  ogw_pct: number | null;
 }
 
 export async function getBest8LeaderboardBySeason(keyword: string): Promise<Best8LeaderboardEntry[]> {
@@ -318,7 +324,10 @@ export async function getBest8LeaderboardBySeason(keyword: string): Promise<Best
       (ps.wins_swiss * 3 + ps.draws)::int AS tournament_points,
       ps.wins_swiss::int AS wins,
       ps.losses_swiss::int AS losses,
-      ps.draws::int AS draws
+      ps.draws::int AS draws,
+      ps.omw_pct::float AS omw_pct,
+      ps.tgw_pct::float AS tgw_pct,
+      ps.ogw_pct::float AS ogw_pct
     FROM player_stats ps
     JOIN tournaments t ON ps.tid = t.tid
     WHERE t.tournament_name ILIKE ${pattern}

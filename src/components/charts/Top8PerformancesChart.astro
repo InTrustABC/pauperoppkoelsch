@@ -10,6 +10,9 @@ interface Props {
         best8_wins: number;
         best8_losses: number;
         best8_draws: number;
+        avg_omw_pct: number | null;
+        avg_tgw_pct: number | null;
+        avg_ogw_pct: number | null;
         tournaments_counted: number;
         tournaments_played: number;
     }[];
@@ -23,6 +26,11 @@ const chartHeight = Math.max(350, data.length * 50);
 const chartData = JSON.stringify({
     labels: data.map((p) => p.player_name),
     points: data.map((p) => p.best8_points),
+    tiebreakers: data.map((p) => ({
+        omw: p.avg_omw_pct,
+        tgw: p.avg_tgw_pct,
+        ogw: p.avg_ogw_pct,
+    })),
     records: data.map(
         (p) =>
             `${p.best8_wins}W-${p.best8_losses}L-${p.best8_draws}D | ${p.tournaments_counted}/${p.tournaments_played} Turniere gewertet`,
@@ -115,7 +123,23 @@ const chartData = JSON.stringify({
                     legend: { display: false },
                     tooltip: {
                         callbacks: {
-                            afterLabel: (ctx) => parsed.records[ctx.dataIndex],
+                            afterLabel: (ctx) => {
+                                const i = ctx.dataIndex;
+                                const record = parsed.records[i];
+                                const tb = parsed.tiebreakers?.[i];
+
+                                if (!tb) return record;
+
+                                const formatPct = (value: number | null | undefined) =>
+                                    typeof value === "number" && Number.isFinite(value)
+                                        ? `${(value * 100).toFixed(2)}%`
+                                        : "n/a";
+
+                                return [
+                                    record,
+                                    `OMW: ${formatPct(tb.omw)} | TGW: ${formatPct(tb.tgw)} | OGW: ${formatPct(tb.ogw)}`,
+                                ];
+                            },
                         },
                     },
                     datalabels: {

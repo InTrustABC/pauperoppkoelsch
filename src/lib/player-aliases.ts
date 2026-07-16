@@ -116,6 +116,15 @@ export function consolidatePlayerLeaderboard(
 export function computeBest8Leaderboard(
   scores: TournamentScore[],
 ): Best8LeaderboardEntry[] {
+  const average = (values: number[]): number | null => {
+    if (values.length === 0) return null;
+    const total = values.reduce((sum, v) => sum + v, 0);
+    return Math.round((total / values.length) * 10000) / 10000;
+  };
+
+  const tieValue = (value: number | null): number =>
+    value === null ? -1 : value;
+
   // Group all tournament scores by canonical player name
   const playerScores = new Map<string, TournamentScore[]>();
 
@@ -141,12 +150,35 @@ export function computeBest8Leaderboard(
       best8_wins: top8.reduce((sum, s) => sum + s.wins, 0),
       best8_losses: top8.reduce((sum, s) => sum + s.losses, 0),
       best8_draws: top8.reduce((sum, s) => sum + s.draws, 0),
+      avg_omw_pct: average(
+        top8
+          .map((s) => s.omw_pct)
+          .filter((v): v is number => v !== null && Number.isFinite(v)),
+      ),
+      avg_tgw_pct: average(
+        top8
+          .map((s) => s.tgw_pct)
+          .filter((v): v is number => v !== null && Number.isFinite(v)),
+      ),
+      avg_ogw_pct: average(
+        top8
+          .map((s) => s.ogw_pct)
+          .filter((v): v is number => v !== null && Number.isFinite(v)),
+      ),
       tournaments_counted: top8.length,
       tournaments_played: tournamentsPlayed,
     });
   }
 
   return result.sort(
-    (a, b) => b.best8_points - a.best8_points || b.best8_wins - a.best8_wins,
+    (a, b) =>
+      b.best8_points - a.best8_points ||
+      b.best8_wins - a.best8_wins ||
+      tieValue(b.avg_omw_pct) - tieValue(a.avg_omw_pct) ||
+      tieValue(b.avg_tgw_pct) - tieValue(a.avg_tgw_pct) ||
+      tieValue(b.avg_ogw_pct) - tieValue(a.avg_ogw_pct) ||
+      a.best8_losses - b.best8_losses ||
+      b.best8_draws - a.best8_draws ||
+      a.player_name.localeCompare(b.player_name),
   );
 }
