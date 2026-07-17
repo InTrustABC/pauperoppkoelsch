@@ -17,9 +17,10 @@ interface Props {
         tournaments_played: number;
     }[];
     title?: string;
+    season?: string;
 }
 
-const { data, title = "Top 8 — Besten Turniere" } = Astro.props;
+const { data, title = "Top 8 — Besten Turniere", season = "" } = Astro.props;
 
 const chartHeight = Math.max(350, data.length * 50);
 
@@ -35,6 +36,7 @@ const chartData = JSON.stringify({
         (p) =>
             `${p.best8_wins}W-${p.best8_losses}L-${p.best8_draws}D | ${p.tournaments_counted}/${p.tournaments_played} Turniere gewertet`,
     ),
+    season,
 });
 ---
 
@@ -65,6 +67,8 @@ const chartData = JSON.stringify({
         Tooltip,
         Legend,
     );
+
+    import { openPlayerDeckModal } from "../../lib/playerDeckModal";
 
     document.addEventListener("astro:page-load", () => {
         const canvas = document.getElementById(
@@ -130,8 +134,11 @@ const chartData = JSON.stringify({
 
                                 if (!tb) return record;
 
-                                const formatPct = (value: number | null | undefined) =>
-                                    typeof value === "number" && Number.isFinite(value)
+                                const formatPct = (
+                                    value: number | null | undefined,
+                                ) =>
+                                    typeof value === "number" &&
+                                    Number.isFinite(value)
                                         ? `${(value * 100).toFixed(2)}%`
                                         : "n/a";
 
@@ -142,12 +149,14 @@ const chartData = JSON.stringify({
                             },
                         },
                     },
-                    datalabels: {
-                        color: "#fff",
-                        font: { weight: "bold" as const, size: 11 },
-                        anchor: "center" as const,
-                        align: "center" as const,
-                    },
+                },
+                onHover: (_event, elements) => {
+                    canvas.style.cursor = elements.length ? "pointer" : "default";
+                },
+                onClick: (_event, elements) => {
+                    if (!elements.length) return;
+                    const i = elements[0].index;
+                    openPlayerDeckModal(parsed.labels[i], parsed.season || undefined);
                 },
             },
         });

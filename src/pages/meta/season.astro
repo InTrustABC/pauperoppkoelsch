@@ -108,6 +108,7 @@ try {
                 data={leaderboard}
                 title={`Spieler Ranking — ${season}`}
                 maxPlayers={leaderboard.length}
+                season={season}
               />
             </div>
           )}
@@ -117,6 +118,7 @@ try {
               <Top8PerformancesChart
                 data={best8Leaderboard}
                 title={`Top 8 Spieler — Besten 8 Turniere (${season})`}
+                season={season}
               />
             </div>
           )}

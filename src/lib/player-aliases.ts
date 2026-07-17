@@ -71,6 +71,17 @@ export function normalizePlayerName(name: string): string {
 }
 
 /**
+ * Return all DB name variants that resolve to the given canonical name.
+ * Always includes the canonical name itself (in case it appears in the DB as-is).
+ */
+export function getAliasesForCanonicalName(canonicalName: string): string[] {
+  const aliases = Object.entries(PLAYER_ALIASES)
+    .filter(([, value]) => value === canonicalName)
+    .map(([key]) => key);
+  return [...new Set([canonicalName, ...aliases])];
+}
+
+/**
  * Consolidate a player leaderboard by merging rows that share a canonical name.
  * Re-aggregates wins/losses/draws/tournaments and recalculates derived fields.
  */

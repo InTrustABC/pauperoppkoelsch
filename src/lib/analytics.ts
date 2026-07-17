@@ -1,5 +1,5 @@
 import postgres from "postgres";
-import { consolidatePlayerLeaderboard, computeBest8Leaderboard } from "./player-aliases";
+import { consolidatePlayerLeaderboard, computeBest8Leaderboard, getAliasesForCanonicalName } from "./player-aliases";
 
 // --- Connection (reuses same pattern as db.ts) ---
 
@@ -65,6 +65,15 @@ export interface Best8LeaderboardEntry {
   avg_ogw_pct: number | null;
   tournaments_counted: number;
   tournaments_played: number;
+}
+
+export interface PlayerDeckStatEntry {
+  deck_archetype: string;
+  wins: number;
+  losses: number;
+  draws: number;
+  tournaments: number;
+  win_rate: number;
 }
 
 // --- Analytics Queries ---
@@ -359,4 +368,71 @@ export async function getOverviewStats(days: number = 90) {
     avgFieldSize: stats.avg_field_size ?? 0,
     uniquePlayers: stats.unique_players ?? 0,
   };
+}
+
+/**
+ * Get a player's per-deck win rate breakdown for tournaments in a given season.
+ * Handles player name aliases by querying all known name variants.
+ */
+export async function getPlayerDeckStatsBySeason(
+  playerName: string,
+  keyword: string,
+): Promise<PlayerDeckStatEntry[]> {
+  const db = getDb();
+  const pattern = `%${keyword}%`;
+  const names = getAliasesForCanonicalName(playerName);
+
+  const rows = await db<PlayerDeckStatEntry[]>`
+    SELECT
+      COALESCE(ps.deck_archetype, 'Unknown') AS deck_archetype,
+      SUM(ps.wins_swiss)::int AS wins,
+      SUM(ps.losses_swiss)::int AS losses,
+      SUM(ps.draws)::int AS draws,
+      COUNT(ps.tid)::int AS tournaments,
+      ROUND(
+        SUM(ps.wins_swiss)::numeric /
+        NULLIF(SUM(ps.wins_swiss) + SUM(ps.losses_swiss) + SUM(ps.draws), 0) * 100,
+        1
+      )::float AS win_rate
+    FROM player_stats ps
+    JOIN tournaments t ON ps.tid = t.tid
+    WHERE t.tournament_name ILIKE ${pattern}
+      AND ps.player_name = ANY(${names})
+    GROUP BY COALESCE(ps.deck_archetype, 'Unknown')
+    ORDER BY wins DESC, win_rate DESC
+  `;
+  return rows;
+}
+
+/**
+ * Get a player's per-deck win rate breakdown for a rolling time window.
+ */
+export async function getPlayerDeckStatsByDays(
+  playerName: string,
+  days: number,
+): Promise<PlayerDeckStatEntry[]> {
+  const db = getDb();
+  const cutoff = Math.floor(Date.now() / 1000) - days * 86400;
+  const names = getAliasesForCanonicalName(playerName);
+
+  const rows = await db<PlayerDeckStatEntry[]>`
+    SELECT
+      COALESCE(ps.deck_archetype, 'Unknown') AS deck_archetype,
+      SUM(ps.wins_swiss)::int AS wins,
+      SUM(ps.losses_swiss)::int AS losses,
+      SUM(ps.draws)::int AS draws,
+      COUNT(ps.tid)::int AS tournaments,
+      ROUND(
+        SUM(ps.wins_swiss)::numeric /
+        NULLIF(SUM(ps.wins_swiss) + SUM(ps.losses_swiss) + SUM(ps.draws), 0) * 100,
+        1
+      )::float AS win_rate
+    FROM player_stats ps
+    JOIN tournaments t ON ps.tid = t.tid
+    WHERE t.start_date >= ${cutoff}
+      AND ps.player_name = ANY(${names})
+    GROUP BY COALESCE(ps.deck_archetype, 'Unknown')
+    ORDER BY wins DESC, win_rate DESC
+  `;
+  return rows;
 }

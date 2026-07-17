@@ -16,9 +16,11 @@ interface Props {
     }[];
     title?: string;
     maxPlayers?: number;
+    season?: string;
+    days?: number;
 }
 
-const { data, title = "Spieler Ranking", maxPlayers = 30 } = Astro.props;
+const { data, title = "Spieler Ranking", maxPlayers = 30, season, days } = Astro.props;
 
 const top = data.slice(0, maxPlayers);
 
@@ -31,6 +33,8 @@ const chartData = JSON.stringify({
         (p) =>
             `${p.total_wins}W-${p.total_losses}L-${p.total_draws}D | WR: ${p.win_rate}% | PPG: ${p.points_per_game} (${p.tournaments_played} Turniere)`,
     ),
+    season: season ?? null,
+    days: days ?? null,
 });
 ---
 
@@ -61,6 +65,8 @@ const chartData = JSON.stringify({
         Tooltip,
         Legend,
     );
+
+    import { openPlayerDeckModal } from "../../lib/playerDeckModal";
 
     document.addEventListener("astro:page-load", () => {
         const canvas = document.getElementById(
@@ -119,6 +125,18 @@ const chartData = JSON.stringify({
                             afterLabel: (ctx) => parsed.records[ctx.dataIndex],
                         },
                     },
+                },
+                onHover: (_event, elements) => {
+                    canvas.style.cursor = elements.length ? "pointer" : "default";
+                },
+                onClick: (_event, elements) => {
+                    if (!elements.length) return;
+                    const i = elements[0].index;
+                    openPlayerDeckModal(
+                        parsed.labels[i],
+                        parsed.season ?? undefined,
+                        parsed.days ?? undefined,
+                    );
                 },
             },
         });
