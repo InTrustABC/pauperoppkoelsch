@@ -64,6 +64,11 @@ const chartData = JSON.stringify({
         if (existing) existing.destroy();
 
         const parsed = JSON.parse(canvas.dataset.chart!);
+        const sharedAxisMax = Math.max(
+            ...parsed.playerCounts,
+            ...parsed.archetypes,
+            1,
+        );
 
         new Chart(canvas, {
             type: "line",
@@ -104,22 +109,38 @@ const chartData = JSON.stringify({
                         type: "linear",
                         position: "left",
                         beginAtZero: true,
+                        min: 0,
+                        max: sharedAxisMax,
                         title: { display: true, text: "Spieler" },
                     },
                     y1: {
                         type: "linear",
                         position: "right",
                         beginAtZero: true,
+                        min: 0,
+                        max: sharedAxisMax,
                         grid: { drawOnChartArea: false },
                         title: { display: true, text: "Archetypen" },
                     },
                 },
                 plugins: {
+                    datalabels: {
+                        display: false,
+                    },
                     tooltip: {
                         callbacks: {
                             title: (ctx) => {
                                 const idx = ctx[0].dataIndex;
                                 return `${parsed.names[idx]} (${parsed.labels[idx]})`;
+                            },
+                            label: (ctx) => {
+                                if (ctx.datasetIndex === 1) {
+                                    const rawArchetypes =
+                                        parsed.archetypes[ctx.dataIndex];
+                                    return `Deck-Archetypen: ${rawArchetypes}`;
+                                }
+
+                                return `Spieler: ${Number(ctx.parsed.y ?? 0)}`;
                             },
                         },
                     },
