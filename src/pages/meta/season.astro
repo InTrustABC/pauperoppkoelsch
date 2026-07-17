@@ -9,6 +9,7 @@ import MetaBreakdownChart from "../../components/charts/MetaBreakdownChart.astro
 import PlayerRankingChart from "../../components/charts/PlayerRankingChart.astro";
 import FormatHealthChart from "../../components/charts/FormatHealthChart.astro";
 import Top8PerformancesChart from "../../components/charts/Top8PerformancesChart.astro";
+import "flatpickr/dist/flatpickr.min.css";
 
 import {
   getMetaBreakdownBySeason,
@@ -16,6 +17,10 @@ import {
   getFormatHealthBySeason,
   getOverviewStatsBySeason,
   getBest8LeaderboardBySeason,
+  formatDateForDisplay,
+  getEarliestTournamentDateBySeason,
+  getTodayIsoDate,
+  resolveDateRange,
   type MetaBreakdownEntry,
   type PlayerLeaderboardEntry,
   type FormatHealthEntry,
@@ -30,6 +35,26 @@ const season = SEASONS.includes(url.searchParams.get("season") ?? "")
   ? (url.searchParams.get("season") as string)
   : SEASONS[0];
 
+const todayIso = getTodayIsoDate();
+const seasonDefaultEntries = await Promise.all(
+  SEASONS.map(async (seasonName) => [
+    seasonName,
+    (await getEarliestTournamentDateBySeason(seasonName)) ?? todayIso,
+  ] as const),
+);
+const seasonDefaultFrom = Object.fromEntries(seasonDefaultEntries) as Record<string, string>;
+const range = resolveDateRange({
+  fromParam: url.searchParams.get("from"),
+  toParam: url.searchParams.get("to"),
+  defaultFrom: seasonDefaultFrom[season] ?? todayIso,
+  defaultTo: todayIso,
+});
+const rangeFilter = {
+  startDateUnix: range.startDateUnix,
+  endDateUnixExclusive: range.endDateUnixExclusive,
+};
+const rangeLabel = `${formatDateForDisplay(range.from)} bis ${formatDateForDisplay(range.to)}`;
+
 let metaBreakdown: MetaBreakdownEntry[] = [];
 let leaderboard: PlayerLeaderboardEntry[] = [];
 let formatHealth: FormatHealthEntry[] = [];
@@ -39,11 +64,11 @@ let error: string | null = null;
 
 try {
   [metaBreakdown, leaderboard, formatHealth, stats, best8Leaderboard] = await Promise.all([
-    getMetaBreakdownBySeason(season),
-    getPlayerLeaderboardBySeason(season),
-    getFormatHealthBySeason(season),
-    getOverviewStatsBySeason(season),
-    getBest8LeaderboardBySeason(season),
+    getMetaBreakdownBySeason(season, rangeFilter),
+    getPlayerLeaderboardBySeason(season, rangeFilter),
+    getFormatHealthBySeason(season, rangeFilter),
+    getOverviewStatsBySeason(season, rangeFilter),
+    getBest8LeaderboardBySeason(season, rangeFilter),
   ]);
 } catch (err) {
   error = `Daten konnten nicht geladen werden: ${err instanceof Error ? err.message : "Unbekannter Fehler"}`;
@@ -55,15 +80,42 @@ try {
     <H1 text="Pauper Colonia Season Analytics" />
 
     <!-- Season Selector -->
-    <div class="filter-bar">
+    <form id="season-filter-form" method="get" class="filter-bar">
       <label class="filter-label" for="season-select">Saison:</label>
-      <select id="season-select" class="season-select">
+      <select id="season-select" name="season" class="season-select">
         {SEASONS.map((s) => (
           <option value={s} selected={s === season}>{s}</option>
         ))}
       </select>
+
+      <label class="filter-label" for="season-from">Von:</label>
+      <input
+        id="season-from"
+        class="date-input"
+        type="text"
+        name="from"
+        value={formatDateForDisplay(range.from)}
+        inputmode="numeric"
+        placeholder="dd.MM.yyyy"
+        pattern="(\\d{2}\\.\\d{2}\\.\\d{4}|\\d{4}-\\d{2}-\\d{2})"
+      />
+
+      <label class="filter-label" for="season-to">Bis:</label>
+      <input
+        id="season-to"
+        class="date-input"
+        type="text"
+        name="to"
+        value={formatDateForDisplay(range.to)}
+        inputmode="numeric"
+        placeholder="dd.MM.yyyy"
+        pattern="(\\d{2}\\.\\d{2}\\.\\d{4}|\\d{4}-\\d{2}-\\d{2})"
+      />
+
+      <button type="submit" class="apply-btn">Anwenden</button>
       <a href="/meta" class="nav-pill-link">Alle Turniere →</a>
-    </div>
+    </form>
+    <script id="season-defaults" type="application/json" set:html={JSON.stringify(seasonDefaultFrom)}></script>
 
     {error ? (
       <div class="error-message">
@@ -97,7 +149,7 @@ try {
             <div class="chart-card">
               <MetaBreakdownChart
                 data={metaBreakdown}
-                title={`Meta Breakdown — ${season}`}
+                title={`Meta Breakdown — ${season} (${rangeLabel})`}
               />
             </div>
           )}
@@ -106,9 +158,11 @@ try {
             <div class="chart-card">
               <PlayerRankingChart
                 data={leaderboard}
-                title={`Spieler Ranking — ${season}`}
+                title={`Spieler Ranking — ${season} (${rangeLabel})`}
                 maxPlayers={leaderboard.length}
                 season={season}
+                from={range.from}
+                to={range.to}
               />
             </div>
           )}
@@ -117,8 +171,10 @@ try {
             <div class="chart-card">
               <Top8PerformancesChart
                 data={best8Leaderboard}
-                title={`Top 8 Spieler — Besten 8 Turniere (${season})`}
+                title={`Top 8 Spieler — Besten 8 Turniere (${season}, ${rangeLabel})`}
                 season={season}
+                from={range.from}
+                to={range.to}
               />
             </div>
           )}
@@ -127,7 +183,7 @@ try {
             <div class="chart-card">
               <FormatHealthChart
                 data={formatHealth}
-                title={`Format Health — ${season}`}
+                title={`Format Health — ${season} (${rangeLabel})`}
               />
             </div>
           )}
@@ -147,11 +203,60 @@ try {
 </Layout>
 
 <script>
-  const select = document.getElementById("season-select") as HTMLSelectElement;
-  select?.addEventListener("change", () => {
-    const params = new URLSearchParams(window.location.search);
-    params.set("season", select.value);
-    window.location.href = `/meta/season?${params.toString()}`;
+  import flatpickr from "flatpickr";
+  import { German } from "flatpickr/dist/l10n/de.js";
+
+  document.addEventListener("astro:page-load", () => {
+    const form = document.getElementById("season-filter-form") as HTMLFormElement | null;
+    const select = document.getElementById("season-select") as HTMLSelectElement | null;
+    const fromInput = document.getElementById("season-from") as HTMLInputElement | null;
+    const toInput = document.getElementById("season-to") as HTMLInputElement | null;
+    const defaultsEl = document.getElementById("season-defaults");
+    const seasonDefaults = defaultsEl?.textContent ? JSON.parse(defaultsEl.textContent) as Record<string, string> : {};
+
+    const pickerOptions = {
+      locale: German,
+      dateFormat: "d.m.Y",
+      allowInput: true,
+      disableMobile: true,
+    };
+
+    if (fromInput) {
+      const fromWithPicker = fromInput as HTMLInputElement & { _flatpickr?: { destroy: () => void } };
+      if (fromWithPicker._flatpickr) fromWithPicker._flatpickr.destroy();
+      flatpickr(fromInput, pickerOptions);
+    }
+
+    if (toInput) {
+      const toWithPicker = toInput as HTMLInputElement & { _flatpickr?: { destroy: () => void } };
+      if (toWithPicker._flatpickr) toWithPicker._flatpickr.destroy();
+      flatpickr(toInput, pickerOptions);
+    }
+
+    if (form && select && fromInput) {
+      const isoToGerman = (value: string | undefined) => {
+        if (!value) return "";
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+        if (!match) return value;
+        return `${match[3]}.${match[2]}.${match[1]}`;
+      };
+
+      let previousSeason = select.value;
+
+      select.addEventListener("change", () => {
+        const nextSeason = select.value;
+        const previousDefault = isoToGerman(seasonDefaults[previousSeason]);
+        const nextDefault = isoToGerman(seasonDefaults[nextSeason]);
+        const fromWasDefault = !fromInput.value || fromInput.value === previousDefault;
+
+        if (fromWasDefault && nextDefault) {
+          fromInput.value = nextDefault;
+        }
+
+        previousSeason = nextSeason;
+        form.requestSubmit();
+      });
+    }
   });
 </script>
 
@@ -194,6 +299,37 @@ try {
     background: #fff;
     color: #333;
     font-weight: normal;
+  }
+
+  .date-input {
+    padding: 0.5rem 0.6rem;
+    border: 1px solid #ddd;
+    border-radius: 0.375rem;
+    font-size: 0.95rem;
+    color: #333;
+    background: #fff;
+    width: 12.5ch;
+  }
+
+  .date-input:focus {
+    outline: none;
+    border-color: #0066cc;
+    box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.15);
+  }
+
+  .apply-btn {
+    padding: 0.5rem 0.8rem;
+    border: 1px solid #0066cc;
+    border-radius: 0.375rem;
+    background: #0066cc;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+
+  .apply-btn:hover {
+    background: #0052a3;
   }
 
 

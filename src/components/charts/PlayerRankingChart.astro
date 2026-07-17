@@ -18,9 +18,11 @@ interface Props {
     maxPlayers?: number;
     season?: string;
     days?: number;
+    from?: string;
+    to?: string;
 }
 
-const { data, title = "Spieler Ranking", maxPlayers = 30, season, days } = Astro.props;
+const { data, title = "Spieler Ranking", maxPlayers = 30, season, days, from, to } = Astro.props;
 
 const top = data.slice(0, maxPlayers);
 
@@ -35,6 +37,8 @@ const chartData = JSON.stringify({
     ),
     season: season ?? null,
     days: days ?? null,
+    from: from ?? null,
+    to: to ?? null,
 });
 ---
 
@@ -136,6 +140,8 @@ const chartData = JSON.stringify({
                         parsed.labels[i],
                         parsed.season ?? undefined,
                         parsed.days ?? undefined,
+                        parsed.from ?? undefined,
+                        parsed.to ?? undefined,
                     );
                 },
             },

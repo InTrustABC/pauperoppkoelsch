@@ -18,9 +18,11 @@ interface Props {
     }[];
     title?: string;
     season?: string;
+    from?: string;
+    to?: string;
 }
 
-const { data, title = "Top 8 — Besten Turniere", season = "" } = Astro.props;
+const { data, title = "Top 8 — Besten Turniere", season = "", from, to } = Astro.props;
 
 const chartHeight = Math.max(350, data.length * 50);
 
@@ -37,6 +39,8 @@ const chartData = JSON.stringify({
             `${p.best8_wins}W-${p.best8_losses}L-${p.best8_draws}D | ${p.tournaments_counted}/${p.tournaments_played} Turniere gewertet`,
     ),
     season,
+    from: from ?? null,
+    to: to ?? null,
 });
 ---
 
@@ -156,7 +160,14 @@ const chartData = JSON.stringify({
                 onClick: (_event, elements) => {
                     if (!elements.length) return;
                     const i = elements[0].index;
-                    openPlayerDeckModal(parsed.labels[i], parsed.season || undefined);
+                    openPlayerDeckModal(
+                        parsed.labels[i],
+                        parsed.season || undefined,
+                        undefined,
+                        parsed.from || undefined,
+                        parsed.to || undefined,
+                        true,
+                    );
                 },
             },
         });

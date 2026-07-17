@@ -28,6 +28,14 @@ interface DeckStat {
 
 let deckChartInstance: Chart | null = null;
 
+function formatDateForDisplay(value: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) {
+    return value;
+  }
+  return `${match[3]}.${match[2]}.${match[1]}`;
+}
+
 function injectStyles(): void {
     if (document.getElementById(STYLES_ID)) return;
     const style = document.createElement("style");
@@ -184,6 +192,9 @@ export async function openPlayerDeckModal(
     playerName: string,
     season?: string,
     days?: number,
+    from?: string,
+    to?: string,
+    top8Only?: boolean,
 ): Promise<void> {
     const modal = getOrCreateModal();
     const titleEl = document.getElementById("playerDeckModalTitle") as HTMLElement;
@@ -197,7 +208,19 @@ export async function openPlayerDeckModal(
     const loadingEl = document.getElementById("playerDeckLoading") as HTMLElement;
     const errorEl = document.getElementById("playerDeckError") as HTMLElement;
 
-    const filterLabel = season ?? (days ? `${days} Tage` : "");
+    const filterParts: string[] = [];
+    if (season) {
+      filterParts.push(season);
+    } else if (days) {
+      filterParts.push(`${days} Tage`);
+    }
+    if (from && to) {
+      filterParts.push(`${formatDateForDisplay(from)} bis ${formatDateForDisplay(to)}`);
+    }
+    if (top8Only) {
+      filterParts.push("Top 8 gewertet");
+    }
+    const filterLabel = filterParts.join(" | ");
     titleEl.textContent = `${playerName} \u2014 Decks (${filterLabel})`;
     tbody.innerHTML = "";
     loadingEl.style.display = "block";
@@ -215,6 +238,9 @@ export async function openPlayerDeckModal(
         const params = new URLSearchParams({ player: playerName });
         if (season) params.set("season", season);
         else if (days) params.set("days", String(days));
+        if (from) params.set("from", from);
+        if (to) params.set("to", to);
+        if (top8Only) params.set("top8", "1");
 
         const res = await fetch(`/api/player-deck-stats?${params}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);

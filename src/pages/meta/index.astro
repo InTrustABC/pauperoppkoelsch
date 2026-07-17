@@ -8,15 +8,45 @@ import H1 from "../../components/H1.astro";
 import MetaBreakdownChart from "../../components/charts/MetaBreakdownChart.astro";
 import PlayerRankingChart from "../../components/charts/PlayerRankingChart.astro";
 import FormatHealthChart from "../../components/charts/FormatHealthChart.astro";
+import "flatpickr/dist/flatpickr.min.css";
 
 import {
   getMetaBreakdown, getPlayerLeaderboard, getFormatHealth, getOverviewStats,
+  formatDateForDisplay, getEarliestTournamentDate, getTodayIsoDate, resolveDateRange, unixToIsoDate,
   type MetaBreakdownEntry, type PlayerLeaderboardEntry, type FormatHealthEntry,
 } from "../../lib/analytics";
 
 // Parse days from query string, default 90
 const url = new URL(Astro.request.url);
 const days = Math.min(Math.max(parseInt(url.searchParams.get("days") ?? "90"), 7), 365);
+const todayIso = getTodayIsoDate();
+const earliestTournamentDate = await getEarliestTournamentDate();
+const defaultFrom = earliestTournamentDate ?? todayIso;
+const range = resolveDateRange({
+  fromParam: url.searchParams.get("from"),
+  toParam: url.searchParams.get("to"),
+  defaultFrom,
+  defaultTo: todayIso,
+});
+
+const nowUnix = Math.floor(Date.now() / 1000);
+const dayPresetValues = [30, 90, 180, 365] as const;
+const dayPresets = Object.fromEntries(
+  dayPresetValues.map((presetDays) => [
+    presetDays,
+    { from: unixToIsoDate(nowUnix - presetDays * 86400), to: todayIso },
+  ]),
+) as Record<number, { from: string; to: string }>;
+const activePresetDays = dayPresetValues.find((presetDays) => {
+  const preset = dayPresets[presetDays];
+  return preset.from === range.from && preset.to === range.to;
+}) ?? null;
+
+const rangeFilter = {
+  startDateUnix: range.startDateUnix,
+  endDateUnixExclusive: range.endDateUnixExclusive,
+};
+const rangeLabel = `${formatDateForDisplay(range.from)} bis ${formatDateForDisplay(range.to)}`;
 
 let metaBreakdown: MetaBreakdownEntry[] = [];
 let leaderboard: PlayerLeaderboardEntry[] = [];
@@ -26,10 +56,10 @@ let error: string | null = null;
 
 try {
   [metaBreakdown, leaderboard, formatHealth, stats] = await Promise.all([
-    getMetaBreakdown(days),
-    getPlayerLeaderboard(days),
-    getFormatHealth(days),
-    getOverviewStats(days),
+    getMetaBreakdown(days, rangeFilter),
+    getPlayerLeaderboard(days, 3, rangeFilter),
+    getFormatHealth(days, rangeFilter),
+    getOverviewStats(days, rangeFilter),
   ]);
 } catch (err) {
   error = `Daten konnten nicht geladen werden: ${err instanceof Error ? err.message : "Unbekannter Fehler"}`;
@@ -44,11 +74,37 @@ try {
     <div class="filter-bar">
       <span class="filter-label">Zeitraum:</span>
       <div class="filter-buttons">
-        <a href="/meta?days=30" class:list={["filter-btn", { active: days === 30 }]}>30 Tage</a>
-        <a href="/meta?days=90" class:list={["filter-btn", { active: days === 90 }]}>90 Tage</a>
-        <a href="/meta?days=180" class:list={["filter-btn", { active: days === 180 }]}>180 Tage</a>
-        <a href="/meta?days=365" class:list={["filter-btn", { active: days === 365 }]}>1 Jahr</a>
+        <a href={`/meta?days=30&from=${dayPresets[30].from}&to=${dayPresets[30].to}`} class:list={["filter-btn", { active: activePresetDays === 30 }]}>30 Tage</a>
+        <a href={`/meta?days=90&from=${dayPresets[90].from}&to=${dayPresets[90].to}`} class:list={["filter-btn", { active: activePresetDays === 90 }]}>90 Tage</a>
+        <a href={`/meta?days=180&from=${dayPresets[180].from}&to=${dayPresets[180].to}`} class:list={["filter-btn", { active: activePresetDays === 180 }]}>180 Tage</a>
+        <a href={`/meta?days=365&from=${dayPresets[365].from}&to=${dayPresets[365].to}`} class:list={["filter-btn", { active: activePresetDays === 365 }]}>1 Jahr</a>
       </div>
+      <form method="get" class="date-range-form">
+        <input type="hidden" name="days" value={String(days)} />
+        <label class="filter-label" for="from-date">Von:</label>
+        <input
+          id="from-date"
+          class="date-input"
+          type="text"
+          name="from"
+          value={formatDateForDisplay(range.from)}
+          inputmode="numeric"
+          placeholder="dd.MM.yyyy"
+          pattern="(\\d{2}\\.\\d{2}\\.\\d{4}|\\d{4}-\\d{2}-\\d{2})"
+        />
+        <label class="filter-label" for="to-date">Bis:</label>
+        <input
+          id="to-date"
+          class="date-input"
+          type="text"
+          name="to"
+          value={formatDateForDisplay(range.to)}
+          inputmode="numeric"
+          placeholder="dd.MM.yyyy"
+          pattern="(\\d{2}\\.\\d{2}\\.\\d{4}|\\d{4}-\\d{2}-\\d{2})"
+        />
+        <button type="submit" class="apply-btn">Anwenden</button>
+      </form>
       <a href="/meta/season" class="nav-pill-link">← Saison-Ansicht</a>
     </div>
 
@@ -84,7 +140,7 @@ try {
             <div class="chart-card">
               <MetaBreakdownChart
                 data={metaBreakdown}
-                title={`Meta Breakdown (${days} Tage)`}
+                title={`Meta Breakdown (${rangeLabel})`}
               />
             </div>
           )}
@@ -93,8 +149,10 @@ try {
             <div class="chart-card">
               <PlayerRankingChart
                 data={leaderboard}
-                title={`Spieler Ranking (${days} Tage)`}
+                title={`Spieler Ranking (${rangeLabel})`}
                 days={days}
+                from={range.from}
+                to={range.to}
               />
             </div>
           )}
@@ -103,7 +161,7 @@ try {
             <div class="chart-card">
               <FormatHealthChart
                 data={formatHealth}
-                title={`Format Health (${days} Tage)`}
+                title={`Format Health (${rangeLabel})`}
               />
             </div>
           )}
@@ -126,6 +184,31 @@ try {
   </Main>
 </Layout>
 
+<script>
+  import flatpickr from "flatpickr";
+  import { German } from "flatpickr/dist/l10n/de.js";
+
+  document.addEventListener("astro:page-load", () => {
+    const fromInput = document.getElementById("from-date") as HTMLInputElement | null;
+    const toInput = document.getElementById("to-date") as HTMLInputElement | null;
+
+    const options = {
+      locale: German,
+      dateFormat: "d.m.Y",
+      allowInput: true,
+      disableMobile: true,
+    };
+
+    if (fromInput) {
+      flatpickr(fromInput, options);
+    }
+
+    if (toInput) {
+      flatpickr(toInput, options);
+    }
+  });
+</script>
+
 <style>
   .filter-bar {
     display: flex;
@@ -144,6 +227,45 @@ try {
   .filter-buttons {
     display: flex;
     gap: 0.5rem;
+  }
+
+  .date-range-form {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .date-input {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #ddd;
+    border-radius: 0.375rem;
+    font-size: 0.9rem;
+    color: #333;
+    background: #fff;
+    width: 12.5ch;
+  }
+
+  .date-input:focus {
+    outline: none;
+    border-color: #0066cc;
+    box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.15);
+  }
+
+  .apply-btn {
+    padding: 0.4rem 0.8rem;
+    border: 1px solid #0066cc;
+    border-radius: 0.375rem;
+    background: #0066cc;
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+
+  .apply-btn:hover {
+    background: #0052a3;
   }
 
   .filter-btn {
