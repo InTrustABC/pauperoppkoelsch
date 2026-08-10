@@ -1,3 +1,9 @@
+---
+import { useTranslations } from '../i18n/index';
+
+const { locale } = Astro.locals;
+const t = useTranslations(locale);
+---
 <header class="bg-black">
     <div
         class="flex justify-between items-center px-24 py-6 max-sm:px-5 max-sm:py-10 max-w-7xl w-full mx-auto"
@@ -14,27 +20,64 @@
                 class="rounded-2xl aspect-thumbnail object-cover"
             />
         </a>
-        <ul class="flex gap-x-8">
-            <li>
-                <a href="/" class="font-bold text-white hover:underline">Home</a
+        <div class="flex items-center gap-x-8">
+            <ul class="flex gap-x-8">
+                <li>
+                    <a href="/" class="font-bold text-white hover:underline">{t.nav.home}</a>
+                </li>
+                <!-- <li>
+                    <a href="/blog" class="font-bold text-white hover:underline">Blog</a>
+                </li> -->
+                <li>
+                    <a href="/meta/season" class="font-bold text-white hover:underline">{t.nav.meta}</a>
+                </li>
+                <li>
+                    <a href="/standings" class="font-bold text-white hover:underline">{t.nav.standings}</a>
+                </li>
+            </ul>
+            <div class="flex items-center gap-x-2">
+                <button
+                    data-lang="de"
+                    class:list={['transition-opacity cursor-pointer', locale === 'de' ? 'opacity-100' : 'opacity-40 hover:opacity-80']}
+                    aria-label="Deutsch"
+                    title="Deutsch"
                 >
-            </li>
-            <!-- <li>
-                <a href="/blog" class="font-bold text-white hover:underline"
-                    >Blog</a
+                    <svg width="28" height="19" viewBox="0 0 3 2" xmlns="http://www.w3.org/2000/svg" style="display:block;border-radius:2px" aria-hidden="true">
+                        <rect width="3" height="0.667" fill="#000"/>
+                        <rect y="0.667" width="3" height="0.667" fill="#DD0000"/>
+                        <rect y="1.333" width="3" height="0.667" fill="#FFCE00"/>
+                    </svg>
+                </button>
+                <button
+                    data-lang="en"
+                    class:list={['transition-opacity cursor-pointer', locale === 'en' ? 'opacity-100' : 'opacity-40 hover:opacity-80']}
+                    aria-label="English"
+                    title="English"
                 >
-            </li> -->
-            <li>
-                <a href="/meta/season" class="font-bold text-white hover:underline"
-                    >Meta</a
-                >
-            </li>
-            <li>
-                <a
-                    href="/standings"
-                    class="font-bold text-white hover:underline">Standings</a
-                >
-            </li>
-        </ul>
+                    <svg width="28" height="19" viewBox="0 0 60 40" xmlns="http://www.w3.org/2000/svg" style="display:block;border-radius:2px" aria-hidden="true">
+                        <rect width="60" height="40" fill="#B22234"/>
+                        <rect y="3.077" width="60" height="3.077" fill="#fff"/>
+                        <rect y="9.231" width="60" height="3.077" fill="#fff"/>
+                        <rect y="15.385" width="60" height="3.077" fill="#fff"/>
+                        <rect y="21.538" width="60" height="3.077" fill="#fff"/>
+                        <rect y="27.692" width="60" height="3.077" fill="#fff"/>
+                        <rect y="33.846" width="60" height="3.077" fill="#fff"/>
+                        <rect width="24" height="21.538" fill="#3C3B6E"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
     </div>
 </header>
+<script is:inline>
+    // event delegation survives ClientRouter DOM swaps; guard prevents duplicate listeners
+    if (!window.__langSwitcherInit) {
+        window.__langSwitcherInit = true;
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-lang]');
+            if (!btn) return;
+            document.cookie = 'locale=' + btn.getAttribute('data-lang') + '; max-age=31536000; path=/; SameSite=Lax';
+            location.reload();
+        });
+    }
+</script>

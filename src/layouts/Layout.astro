@@ -19,10 +19,11 @@ const {
 } = Astro.props;
 // import background from "../assets/pccwide.jpeg";
 // const finalImage = image ?? favicon.src;
+const locale = Astro.locals.locale ?? 'de';
 ---
 
 <!doctype html>
-<html lang="de">
+<html lang={locale}>
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="description" content={description} />

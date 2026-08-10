@@ -5,20 +5,24 @@ import Layout from "../../layouts/Layout.astro";
 import Main from "../../components/Main.astro";
 import H1 from "../../components/H1.astro";
 import { getAllTournaments, type Tournament } from "../../lib/db";
+import { useTranslations } from '../../i18n/index';
 
 let tournaments: Tournament[] = [];
 let error: string | null = null;
 
+const { locale } = Astro.locals;
+const t = useTranslations(locale);
+
 try {
     tournaments = await getAllTournaments(90);
 } catch (err) {
-    error = `Turniere konnten nicht geladen werden: ${err instanceof Error ? err.message : "Unbekannter Fehler"}`;
+    error = `${t.standings.error}: ${err instanceof Error ? err.message : t.common.unknown}`;
 }
 ---
 
 <Layout title="Meta & Standings | Pauper Colonia">
     <Main>
-        <H1 text="Tournament Standings (90 Tage)" />
+        <H1 text={t.standings.title} />
 
         {
             error ? (
@@ -37,28 +41,28 @@ try {
                                     <h2>{tournament.tournament_name}</h2>
                                     <div class="tournament-info">
                                         <p>
-                                            <strong>Format:</strong>{" "}
+                                            <strong>{t.standings.labels.format}:</strong>{" "}
                                             {tournament.format}
                                         </p>
                                         <p>
-                                            <strong>Spieler:</strong>{" "}
+                                            <strong>{t.standings.labels.players}:</strong>{" "}
                                             {tournament.players}
                                         </p>
                                         <p>
-                                            <strong>Runden:</strong>{" "}
+                                            <strong>{t.standings.labels.rounds}:</strong>{" "}
                                             {tournament.swiss_rounds}
                                         </p>
                                         {tournament.top_cut > 0 && (
                                             <p>
-                                                <strong>Top Cut:</strong>{" "}
+                                                <strong>{t.standings.labels.topCut}:</strong>{" "}
                                                 {tournament.top_cut}
                                             </p>
                                         )}
                                         <p>
-                                            <strong>Datum:</strong>{" "}
+                                            <strong>{t.standings.labels.date}:</strong>{" "}
                                             {new Date(
                                                 tournament.start_date * 1000,
-                                            ).toLocaleDateString("de-DE")}
+                                            ).toLocaleDateString(locale === 'de' ? 'de-DE' : 'en-US')}
                                         </p>
                                     </div>
                                 </div>

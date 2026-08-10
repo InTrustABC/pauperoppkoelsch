@@ -1,11 +1,14 @@
 ---
+import { useTranslations } from '../i18n/index';
 
+const { locale } = Astro.locals;
+const t = useTranslations(locale);
 ---
 
 <div class="mt-12 w-screen -ml-[calc((100vw-100%)/2)] bg-gray-100 p-8 mb-4">
     <div class="site-container mx-auto">
         <h3 class="text-3xl mb-6 text-center">
-            Komm vorbei für die nächste Runde
+            {t.map.heading}
         </h3>
         <div class="mb-6 flex justify-center">
             <iframe
@@ -24,7 +27,7 @@
                 rel="noopener noreferrer"
                 class="inline-block bg-white text-black border-2 border-black rounded-md px-2 py-1 hover:bg-gray-100 transition-colors underline"
             >
-                Zur Anmeldung
+                {t.map.register}
             </a>
         </div>
     </div>

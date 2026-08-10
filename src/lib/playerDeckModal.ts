@@ -36,6 +36,15 @@ function formatDateForDisplay(value: string): string {
   return `${match[3]}.${match[2]}.${match[1]}`;
 }
 
+// reads the lang set server-side by Layout.astro
+function uiLocale(): 'de' | 'en' {
+    return document.documentElement.lang === 'en' ? 'en' : 'de';
+}
+
+function t(de: string, en: string): string {
+    return uiLocale() === 'en' ? en : de;
+}
+
 function injectStyles(): void {
     if (document.getElementById(STYLES_ID)) return;
     const style = document.createElement("style");
@@ -146,9 +155,9 @@ function getOrCreateModal(): HTMLElement {
     <div class="deck-modal-card">
       <div class="deck-modal-header">
         <h4 id="playerDeckModalTitle" class="deck-modal-title"></h4>
-        <button id="playerDeckModalClose" class="deck-modal-close" aria-label="Schlie\u00dfen">\u2715</button>
+        <button id="playerDeckModalClose" class="deck-modal-close" aria-label="${t('Schlie\u00dfen', 'Close')}">\u2715</button>
       </div>
-      <div id="playerDeckLoading" class="deck-modal-loading">Lade Daten\u2026</div>
+      <div id="playerDeckLoading" class="deck-modal-loading">${t('Lade Daten\u2026', 'Loading\u2026')}</div>
       <div id="playerDeckError" class="deck-modal-error"></div>
       <div id="playerDeckChartContainer" class="deck-chart-inner">
         <canvas id="playerDeckChartCanvas"></canvas>
@@ -158,9 +167,9 @@ function getOrCreateModal(): HTMLElement {
           <thead>
             <tr>
               <th>Deck</th>
-              <th>Bilanz</th>
+              <th>${t('Bilanz', 'Record')}</th>
               <th>Win Rate</th>
-              <th>Turniere</th>
+              <th>${t('Turniere', 'Tournaments')}</th>
             </tr>
           </thead>
           <tbody id="playerDeckTableBody"></tbody>
@@ -212,13 +221,13 @@ export async function openPlayerDeckModal(
     if (season) {
       filterParts.push(season);
     } else if (days) {
-      filterParts.push(`${days} Tage`);
+      filterParts.push(`${days} ${t('Tage', 'Days')}`);
     }
     if (from && to) {
-      filterParts.push(`${formatDateForDisplay(from)} bis ${formatDateForDisplay(to)}`);
+      filterParts.push(`${formatDateForDisplay(from)} ${t('bis', 'to')} ${formatDateForDisplay(to)}`);
     }
     if (top8Only) {
-      filterParts.push("Top 8 gewertet");
+      filterParts.push(t('Top 8 gewertet', 'Top 8 only'));
     }
     const filterLabel = filterParts.join(" | ");
     titleEl.textContent = `${playerName} \u2014 Decks (${filterLabel})`;
@@ -249,7 +258,7 @@ export async function openPlayerDeckModal(
         loadingEl.style.display = "none";
 
         if (!data.length) {
-            errorEl.textContent = "Keine Deck-Daten f\u00fcr diesen Spieler.";
+            errorEl.textContent = t('Keine Deck-Daten f\u00fcr diesen Spieler.', 'No deck data for this player.');
             errorEl.style.display = "block";
             return;
         }
@@ -319,7 +328,7 @@ export async function openPlayerDeckModal(
         }
     } catch (err) {
         loadingEl.style.display = "none";
-        errorEl.textContent = `Fehler: ${err instanceof Error ? err.message : "Unbekannt"}`;
+        errorEl.textContent = `${t('Fehler', 'Error')}: ${err instanceof Error ? err.message : t('Unbekannt', 'Unknown')}`;
         errorEl.style.display = "block";
     }
 }

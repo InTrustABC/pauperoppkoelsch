@@ -26,8 +26,11 @@ import {
   type FormatHealthEntry,
   type Best8LeaderboardEntry,
 } from "../../lib/analytics";
+import { useTranslations } from '../../i18n/index';
 
 // Hardcoded seasons — add new season names here as they are created
+const { locale } = Astro.locals;
+const t = useTranslations(locale);
 const SEASONS = ["Verdant Season", "Amber Season"];
 
 const url = new URL(Astro.request.url);
@@ -53,7 +56,7 @@ const rangeFilter = {
   startDateUnix: range.startDateUnix,
   endDateUnixExclusive: range.endDateUnixExclusive,
 };
-const rangeLabel = `${formatDateForDisplay(range.from)} bis ${formatDateForDisplay(range.to)}`;
+const rangeLabel = `${formatDateForDisplay(range.from)} ${t.common.to} ${formatDateForDisplay(range.to)}`;
 
 let metaBreakdown: MetaBreakdownEntry[] = [];
 let leaderboard: PlayerLeaderboardEntry[] = [];
@@ -71,7 +74,7 @@ try {
     getBest8LeaderboardBySeason(season, rangeFilter),
   ]);
 } catch (err) {
-  error = `Daten konnten nicht geladen werden: ${err instanceof Error ? err.message : "Unbekannter Fehler"}`;
+  error = `${t.meta.error}: ${err instanceof Error ? err.message : t.common.unknown}`;
 }
 ---
 
@@ -80,15 +83,15 @@ try {
     <H1 text="Pauper Colonia Season Analytics" />
 
     <!-- Season Selector -->
-    <form id="season-filter-form" method="get" class="filter-bar">
-      <label class="filter-label" for="season-select">Saison:</label>
+    <form id="season-filter-form" method="get" class="filter-bar" data-locale={locale}>
+      <label class="filter-label" for="season-select">{t.meta.season}</label>
       <select id="season-select" name="season" class="season-select">
         {SEASONS.map((s) => (
           <option value={s} selected={s === season}>{s}</option>
         ))}
       </select>
 
-      <label class="filter-label" for="season-from">Von:</label>
+      <label class="filter-label" for="season-from">{t.meta.from}</label>
       <input
         id="season-from"
         class="date-input"
@@ -100,7 +103,7 @@ try {
         pattern="(\\d{2}\\.\\d{2}\\.\\d{4}|\\d{4}-\\d{2}-\\d{2})"
       />
 
-      <label class="filter-label" for="season-to">Bis:</label>
+      <label class="filter-label" for="season-to">{t.meta.to}</label>
       <input
         id="season-to"
         class="date-input"
@@ -112,8 +115,8 @@ try {
         pattern="(\\d{2}\\.\\d{2}\\.\\d{4}|\\d{4}-\\d{2}-\\d{2})"
       />
 
-      <button type="submit" class="apply-btn">Anwenden</button>
-      <a href="/meta" class="nav-pill-link">Alle Turniere →</a>
+      <button type="submit" class="apply-btn">{t.meta.apply}</button>
+      <a href="/meta" class="nav-pill-link">{t.meta.allTournaments}</a>
     </form>
     <script id="season-defaults" type="application/json" set:html={JSON.stringify(seasonDefaultFrom)}></script>
 
@@ -127,19 +130,19 @@ try {
         <div class="stats-grid">
           <div class="stat-card">
             <div class="stat-value">{stats?.totalTournaments ?? 0}</div>
-            <div class="stat-label">Turniere</div>
+            <div class="stat-label">{t.meta.stats.tournaments}</div>
           </div>
           <div class="stat-card">
             <div class="stat-value">{stats?.uniquePlayers ?? 0}</div>
-            <div class="stat-label">Spieler</div>
+            <div class="stat-label">{t.meta.stats.players}</div>
           </div>
           <div class="stat-card">
             <div class="stat-value">{stats?.avgFieldSize ?? 0}</div>
-            <div class="stat-label">Ø Teilnehmer</div>
+            <div class="stat-label">{t.meta.stats.avgParticipants}</div>
           </div>
           <div class="stat-card">
             <div class="stat-value">{stats?.totalEntries ?? 0}</div>
-            <div class="stat-label">Gesamt Einträge</div>
+            <div class="stat-label">{t.meta.stats.totalEntries}</div>
           </div>
         </div>
 
@@ -149,7 +152,7 @@ try {
             <div class="chart-card">
               <MetaBreakdownChart
                 data={metaBreakdown}
-                title={`Meta Breakdown — ${season} (${rangeLabel})`}
+                title={`${t.meta.charts.metaBreakdown} — ${season} (${rangeLabel})`}
               />
             </div>
           )}
@@ -158,7 +161,7 @@ try {
             <div class="chart-card">
               <PlayerRankingChart
                 data={leaderboard}
-                title={`Spieler Ranking — ${season} (${rangeLabel})`}
+                title={`${t.meta.charts.playerRanking} — ${season} (${rangeLabel})`}
                 maxPlayers={leaderboard.length}
                 season={season}
                 from={range.from}
@@ -171,7 +174,7 @@ try {
             <div class="chart-card">
               <Top8PerformancesChart
                 data={best8Leaderboard}
-                title={`Top 8 Spieler — Besten 8 Turniere (${season}, ${rangeLabel})`}
+                title={`${t.meta.charts.top8} (${season}, ${rangeLabel})`}
                 season={season}
                 from={range.from}
                 to={range.to}
@@ -183,7 +186,7 @@ try {
             <div class="chart-card">
               <FormatHealthChart
                 data={formatHealth}
-                title={`Format Health — ${season} (${rangeLabel})`}
+                title={`${t.meta.charts.formatHealth} — ${season} (${rangeLabel})`}
               />
             </div>
           )}
@@ -193,8 +196,8 @@ try {
          (!leaderboard || leaderboard.length === 0) &&
          (!formatHealth || formatHealth.length === 0) && (
           <div class="empty-state">
-            <p>Keine Daten für diese Saison vorhanden.</p>
-            <p>Die Datenbank wird täglich aktualisiert. Bitte versuche es später erneut.</p>
+            <p>{t.meta.empty.season}</p>
+            <p>{t.meta.empty.retry}</p>
           </div>
         )}
       </>
@@ -214,8 +217,9 @@ try {
     const defaultsEl = document.getElementById("season-defaults");
     const seasonDefaults = defaultsEl?.textContent ? JSON.parse(defaultsEl.textContent) as Record<string, string> : {};
 
+    const isGerman = form?.dataset.locale === 'de';
     const pickerOptions = {
-      locale: German,
+      ...(isGerman ? { locale: German } : {}),
       dateFormat: "d.m.Y",
       allowInput: true,
       disableMobile: true,

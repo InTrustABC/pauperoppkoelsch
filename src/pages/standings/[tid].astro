@@ -4,8 +4,12 @@ import Layout from "../../layouts/Layout.astro";
 import Main from "../../components/Main.astro";
 import H1 from "../../components/H1.astro";
 import { getTournamentWithStandings } from "../../lib/db";
+import { useTranslations } from '../../i18n/index';
 
 const { tid } = Astro.params;
+
+const { locale } = Astro.locals;
+const t = useTranslations(locale);
 
 if (!tid) {
     return Astro.redirect("/standings");
@@ -33,29 +37,29 @@ function getWinPercentage(wins: number, losses: number, draws: number): string {
                 <H1 text={tournament.tournament_name} />
                 <div class="tournament-meta">
                     <span class="meta-item">
-                        <strong>Format:</strong>
+                        <strong>{t.standings.labels.format}:</strong>
                         {tournament.format}
                     </span>
                     <span class="meta-item">
-                        <strong>Spieler:</strong>
+                        <strong>{t.standings.labels.players}:</strong>
                         {tournament.players}
                     </span>
                     <span class="meta-item">
-                        <strong>Datum:</strong>{" "}
+                        <strong>{t.standings.labels.date}:</strong>{" "}
                         {
                             new Date(
                                 tournament.start_date * 1000,
-                            ).toLocaleDateString("de-DE")
+                            ).toLocaleDateString(locale === 'de' ? 'de-DE' : 'en-US')
                         }
                     </span>
                     <span class="meta-item">
-                        <strong>Runden:</strong>
+                        <strong>{t.standings.labels.rounds}:</strong>
                         {tournament.swiss_rounds}
                     </span>
                     {
                         tournament.top_cut > 0 && (
                             <span class="meta-item">
-                                <strong>Top Cut:</strong> {tournament.top_cut}
+                                <strong>{t.standings.labels.topCut}:</strong> {tournament.top_cut}
                             </span>
                         )
                     }
@@ -72,18 +76,18 @@ function getWinPercentage(wins: number, losses: number, draws: number): string {
         </div>
 
         <div class="standings-section">
-            <h2>Spieler</h2>
+            <h2>{t.standings.table.section}</h2>
             <div class="table-responsive">
                 <table class="standings-table">
                     <thead>
                         <tr>
-                            <th>Rank</th>
-                            <th>Spieler</th>
-                            <th>Archetype</th>
-                            <th>W-L-D</th>
-                            <th>Win %</th>
-                            <th>Bracket</th>
-                            <th>Decklist</th>
+                            <th>{t.standings.table.rank}</th>
+                            <th>{t.standings.table.player}</th>
+                            <th>{t.standings.table.archetype}</th>
+                            <th>{t.standings.table.record}</th>
+                            <th>{t.standings.table.winPct}</th>
+                            <th>{t.standings.table.bracket}</th>
+                            <th>{t.standings.table.decklist}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -151,7 +155,7 @@ function getWinPercentage(wins: number, losses: number, draws: number): string {
         </div>
 
         <div class="back-link">
-            <a href="/standings">← Zurück zu den Turnieren</a>
+            <a href="/standings">{t.standings.back}</a>
         </div>
     </Main>
 </Layout>

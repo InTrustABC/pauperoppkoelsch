@@ -15,8 +15,11 @@ import {
   formatDateForDisplay, getEarliestTournamentDate, getTodayIsoDate, resolveDateRange, unixToIsoDate,
   type MetaBreakdownEntry, type PlayerLeaderboardEntry, type FormatHealthEntry,
 } from "../../lib/analytics";
+import { useTranslations } from '../../i18n/index';
 
 // Parse days from query string, default 90
+const { locale } = Astro.locals;
+const t = useTranslations(locale);
 const url = new URL(Astro.request.url);
 const days = Math.min(Math.max(parseInt(url.searchParams.get("days") ?? "90"), 7), 365);
 const todayIso = getTodayIsoDate();
@@ -46,7 +49,7 @@ const rangeFilter = {
   startDateUnix: range.startDateUnix,
   endDateUnixExclusive: range.endDateUnixExclusive,
 };
-const rangeLabel = `${formatDateForDisplay(range.from)} bis ${formatDateForDisplay(range.to)}`;
+const rangeLabel = `${formatDateForDisplay(range.from)} ${t.common.to} ${formatDateForDisplay(range.to)}`;
 
 let metaBreakdown: MetaBreakdownEntry[] = [];
 let leaderboard: PlayerLeaderboardEntry[] = [];
@@ -62,7 +65,7 @@ try {
     getOverviewStats(days, rangeFilter),
   ]);
 } catch (err) {
-  error = `Daten konnten nicht geladen werden: ${err instanceof Error ? err.message : "Unbekannter Fehler"}`;
+  error = `${t.meta.error}: ${err instanceof Error ? err.message : t.common.unknown}`;
 }
 ---
 
@@ -72,16 +75,16 @@ try {
 
     <!-- Date Range Filter -->
     <div class="filter-bar">
-      <span class="filter-label">Zeitraum:</span>
+      <span class="filter-label">{t.meta.period}</span>
       <div class="filter-buttons">
-        <a href={`/meta?days=30&from=${dayPresets[30].from}&to=${dayPresets[30].to}`} class:list={["filter-btn", { active: activePresetDays === 30 }]}>30 Tage</a>
-        <a href={`/meta?days=90&from=${dayPresets[90].from}&to=${dayPresets[90].to}`} class:list={["filter-btn", { active: activePresetDays === 90 }]}>90 Tage</a>
-        <a href={`/meta?days=180&from=${dayPresets[180].from}&to=${dayPresets[180].to}`} class:list={["filter-btn", { active: activePresetDays === 180 }]}>180 Tage</a>
-        <a href={`/meta?days=365&from=${dayPresets[365].from}&to=${dayPresets[365].to}`} class:list={["filter-btn", { active: activePresetDays === 365 }]}>1 Jahr</a>
+        <a href={`/meta?days=30&from=${dayPresets[30].from}&to=${dayPresets[30].to}`} class:list={["filter-btn", { active: activePresetDays === 30 }]}>{t.meta.dayLabels['30']}</a>
+        <a href={`/meta?days=90&from=${dayPresets[90].from}&to=${dayPresets[90].to}`} class:list={["filter-btn", { active: activePresetDays === 90 }]}>{t.meta.dayLabels['90']}</a>
+        <a href={`/meta?days=180&from=${dayPresets[180].from}&to=${dayPresets[180].to}`} class:list={["filter-btn", { active: activePresetDays === 180 }]}>{t.meta.dayLabels['180']}</a>
+        <a href={`/meta?days=365&from=${dayPresets[365].from}&to=${dayPresets[365].to}`} class:list={["filter-btn", { active: activePresetDays === 365 }]}>{t.meta.dayLabels['365']}</a>
       </div>
       <form method="get" class="date-range-form">
         <input type="hidden" name="days" value={String(days)} />
-        <label class="filter-label" for="from-date">Von:</label>
+        <label class="filter-label" for="from-date">{t.meta.from}</label>
         <input
           id="from-date"
           class="date-input"
@@ -92,7 +95,7 @@ try {
           placeholder="dd.MM.yyyy"
           pattern="(\\d{2}\\.\\d{2}\\.\\d{4}|\\d{4}-\\d{2}-\\d{2})"
         />
-        <label class="filter-label" for="to-date">Bis:</label>
+        <label class="filter-label" for="to-date">{t.meta.to}</label>
         <input
           id="to-date"
           class="date-input"
@@ -103,9 +106,9 @@ try {
           placeholder="dd.MM.yyyy"
           pattern="(\\d{2}\\.\\d{2}\\.\\d{4}|\\d{4}-\\d{2}-\\d{2})"
         />
-        <button type="submit" class="apply-btn">Anwenden</button>
+        <button type="submit" class="apply-btn">{t.meta.apply}</button>
       </form>
-      <a href="/meta/season" class="nav-pill-link">← Saison-Ansicht</a>
+      <a href="/meta/season" class="nav-pill-link">{t.meta.seasonView}</a>
     </div>
 
     {error ? (
@@ -118,19 +121,19 @@ try {
         <div class="stats-grid">
           <div class="stat-card">
             <div class="stat-value">{stats?.totalTournaments ?? 0}</div>
-            <div class="stat-label">Turniere</div>
+            <div class="stat-label">{t.meta.stats.tournaments}</div>
           </div>
           <div class="stat-card">
             <div class="stat-value">{stats?.uniquePlayers ?? 0}</div>
-            <div class="stat-label">Spieler</div>
+            <div class="stat-label">{t.meta.stats.players}</div>
           </div>
           <div class="stat-card">
             <div class="stat-value">{stats?.avgFieldSize ?? 0}</div>
-            <div class="stat-label">Ø Teilnehmer</div>
+            <div class="stat-label">{t.meta.stats.avgParticipants}</div>
           </div>
           <div class="stat-card">
             <div class="stat-value">{stats?.totalEntries ?? 0}</div>
-            <div class="stat-label">Gesamt Einträge</div>
+            <div class="stat-label">{t.meta.stats.totalEntries}</div>
           </div>
         </div>
 
@@ -140,7 +143,7 @@ try {
             <div class="chart-card">
               <MetaBreakdownChart
                 data={metaBreakdown}
-                title={`Meta Breakdown (${rangeLabel})`}
+                title={`${t.meta.charts.metaBreakdown} (${rangeLabel})`}
               />
             </div>
           )}
@@ -149,7 +152,7 @@ try {
             <div class="chart-card">
               <PlayerRankingChart
                 data={leaderboard}
-                title={`Spieler Ranking (${rangeLabel})`}
+                title={`${t.meta.charts.playerRanking} (${rangeLabel})`}
                 days={days}
                 from={range.from}
                 to={range.to}
@@ -161,7 +164,7 @@ try {
             <div class="chart-card">
               <FormatHealthChart
                 data={formatHealth}
-                title={`Format Health (${rangeLabel})`}
+                title={`${t.meta.charts.formatHealth} (${rangeLabel})`}
               />
             </div>
           )}
@@ -171,8 +174,8 @@ try {
          (!leaderboard || leaderboard.length === 0) &&
          (!formatHealth || formatHealth.length === 0) && (
           <div class="empty-state">
-            <p>Keine Daten für den gewählten Zeitraum vorhanden.</p>
-            <p>Die Datenbank wird täglich aktualisiert. Bitte versuche es später erneut.</p>
+            <p>{t.meta.empty.period}</p>
+            <p>{t.meta.empty.retry}</p>
           </div>
         )}
       </>
