@@ -805,3 +805,54 @@ export async function getPlayerDeckStatsBySeasonTop8(
     })
     .sort((a, b) => b.wins - a.wins || b.win_rate - a.win_rate);
 }
+
+export interface ArchetypePlayerEntry {
+  player_name: string;
+  tournament_name: string;
+  tournament_date: string;
+  wins: number;
+  losses: number;
+  draws: number;
+  win_rate: number | null;
+  decklist: string | null;
+}
+
+export async function getArchetypePlayers(
+  archetype: string,
+  range?: DateRangeFilter,
+  season?: string,
+): Promise<ArchetypePlayerEntry[]> {
+  const db = getDb();
+  const startFilter = range?.startDateUnix !== undefined
+    ? db`AND t.start_date >= ${range.startDateUnix}`
+    : db``;
+  const endFilter = range?.endDateUnixExclusive !== undefined
+    ? db`AND t.start_date < ${range.endDateUnixExclusive}`
+    : db``;
+  const seasonFilter = season
+    ? db`AND t.tournament_name ILIKE ${`%${season}%`}`
+    : db``;
+
+  return db<ArchetypePlayerEntry[]>`
+    SELECT
+      ps.player_name,
+      t.tournament_name,
+      TO_TIMESTAMP(t.start_date)::date::text AS tournament_date,
+      ps.wins_swiss::int AS wins,
+      ps.losses_swiss::int AS losses,
+      ps.draws::int AS draws,
+      ROUND(
+        ps.wins_swiss::numeric /
+        NULLIF(ps.wins_swiss + ps.losses_swiss + ps.draws, 0) * 100,
+        1
+      )::float AS win_rate,
+      ps.decklist
+    FROM player_stats ps
+    JOIN tournaments t ON t.tid = ps.tid
+    WHERE ps.deck_archetype = ${archetype}
+      ${startFilter}
+      ${endFilter}
+      ${seasonFilter}
+    ORDER BY t.start_date DESC, ps.wins_swiss DESC
+  `;
+}

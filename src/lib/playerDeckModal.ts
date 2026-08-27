@@ -332,3 +332,260 @@ export async function openPlayerDeckModal(
         errorEl.style.display = "block";
     }
 }
+
+// --- Archetype detail modal ---
+
+const ARCHETYPE_MODAL_ID = "sharedArchetypeModal";
+const ARCHETYPE_STYLES_ID = "archetypeModalCSS";
+
+interface ArchetypePlayerRow {
+    player_name: string;
+    tournament_name: string;
+    tournament_date: string;
+    wins: number;
+    losses: number;
+    draws: number;
+    win_rate: number | null;
+    decklist: string | null;
+}
+
+function injectArchetypeStyles(): void {
+    if (document.getElementById(ARCHETYPE_STYLES_ID)) return;
+    const style = document.createElement("style");
+    style.id = ARCHETYPE_STYLES_ID;
+    style.textContent = `
+    #${ARCHETYPE_MODAL_ID}.archetype-modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      z-index: 1001;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .archetype-modal-card {
+      background: #1e1e2e;
+      color: #e2e8f0;
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      width: 100%;
+      max-width: 660px;
+      max-height: 82vh;
+      overflow-y: auto;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+    }
+    .archetype-modal-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+    }
+    .archetype-modal-title-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .archetype-modal-swatch {
+      display: inline-block;
+      width: 13px;
+      height: 13px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .archetype-modal-title {
+      font-size: 1rem;
+      font-weight: 700;
+      margin: 0;
+    }
+    .archetype-modal-close {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 1.1rem;
+      line-height: 1;
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+    }
+    .archetype-modal-close:hover {
+      color: #e2e8f0;
+      background: rgba(255,255,255,0.08);
+    }
+    .archetype-modal-meta {
+      font-size: 0.82rem;
+      color: #94a3b8;
+      margin: 0 0 1rem;
+    }
+    .archetype-modal-loading {
+      text-align: center;
+      padding: 1.5rem 0;
+      color: #94a3b8;
+      font-size: 0.875rem;
+    }
+    .archetype-modal-error {
+      display: none;
+      text-align: center;
+      padding: 0.75rem 0;
+      color: #ef4444;
+      font-size: 0.875rem;
+    }
+    .archetype-table-wrapper { overflow-x: auto; }
+    .archetype-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .archetype-table th,
+    .archetype-table td {
+      text-align: left;
+      padding: 0.4rem 0.6rem;
+      border-bottom: 1px solid #2d3748;
+    }
+    .archetype-table th {
+      color: #94a3b8;
+      font-weight: 500;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .archetype-table tbody tr:hover { background: rgba(255,255,255,0.04); }
+    .archetype-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .archetype-table .td-tourn {
+      max-width: 190px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .archetype-deck-link { color: #60a5fa; text-decoration: none; font-size: 0.9rem; }
+    .archetype-deck-link:hover { text-decoration: underline; }
+  `;
+    document.head.appendChild(style);
+}
+
+function getOrCreateArchetypeModal(): HTMLElement {
+    const existing = document.getElementById(ARCHETYPE_MODAL_ID);
+    if (existing) return existing;
+
+    injectArchetypeStyles();
+
+    const modal = document.createElement("div");
+    modal.id = ARCHETYPE_MODAL_ID;
+    modal.className = "archetype-modal-backdrop";
+    modal.innerHTML = `
+    <div class="archetype-modal-card">
+      <div class="archetype-modal-header">
+        <div class="archetype-modal-title-row">
+          <span id="archetypeModalSwatch" class="archetype-modal-swatch"></span>
+          <h4 id="archetypeModalTitle" class="archetype-modal-title"></h4>
+        </div>
+        <button id="archetypeModalClose" class="archetype-modal-close" aria-label="Close">✕</button>
+      </div>
+      <p id="archetypeModalMeta" class="archetype-modal-meta"></p>
+      <div id="archetypeModalLoading" class="archetype-modal-loading">${t('Lade Daten…', 'Loading…')}</div>
+      <div id="archetypeModalError" class="archetype-modal-error"></div>
+      <div class="archetype-table-wrapper">
+        <table class="archetype-table">
+          <thead>
+            <tr>
+              <th>${t('Spieler', 'Player')}</th>
+              <th>${t('Turnier', 'Tournament')}</th>
+              <th class="num">W</th>
+              <th class="num">L</th>
+              <th class="num">D</th>
+              <th class="num">Win%</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="archetypeModalTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+    document.body.appendChild(modal);
+
+    (document.getElementById("archetypeModalClose") as HTMLButtonElement).onclick =
+        () => { modal.style.display = "none"; };
+    modal.onclick = (e) => { if (e.target === modal) modal.style.display = "none"; };
+
+    return modal;
+}
+
+export async function openArchetypeModal(
+    archetype: string,
+    color: string,
+    count: number,
+    pctOfField: number,
+    from?: string,
+    to?: string,
+    season?: string,
+): Promise<void> {
+    const modal = getOrCreateArchetypeModal();
+    const titleEl = document.getElementById("archetypeModalTitle") as HTMLElement;
+    const swatchEl = document.getElementById("archetypeModalSwatch") as HTMLElement;
+    const metaEl = document.getElementById("archetypeModalMeta") as HTMLElement;
+    const loadingEl = document.getElementById("archetypeModalLoading") as HTMLElement;
+    const errorEl = document.getElementById("archetypeModalError") as HTMLElement;
+    const tbody = document.getElementById("archetypeModalTbody") as HTMLElement;
+
+    swatchEl.style.backgroundColor = color;
+    titleEl.textContent = archetype;
+    metaEl.textContent = `${count} appearances · ${pctOfField.toFixed(1)}% of field`;
+    tbody.innerHTML = "";
+    loadingEl.style.display = "block";
+    errorEl.style.display = "none";
+    errorEl.textContent = "";
+    modal.style.display = "flex";
+
+    try {
+        const params = new URLSearchParams({ archetype });
+        if (from) params.set("from", from);
+        if (to) params.set("to", to);
+        if (season) params.set("season", season);
+
+        const res = await fetch(`/api/archetype-players?${params}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const rows: ArchetypePlayerRow[] = await res.json();
+
+        loadingEl.style.display = "none";
+
+        if (!rows.length) {
+            errorEl.textContent = t('Keine Daten gefunden.', 'No data found.');
+            errorEl.style.display = "block";
+            return;
+        }
+
+        // Update meta with aggregate win rate
+        const totalW = rows.reduce((s, r) => s + r.wins, 0);
+        const totalG = rows.reduce((s, r) => s + r.wins + r.losses + r.draws, 0);
+        const aggWR = totalG > 0 ? ((totalW / totalG) * 100).toFixed(1) : "—";
+        metaEl.textContent = `${count} appearances · ${pctOfField.toFixed(1)}% of field · ${aggWR}% win rate`;
+
+        for (const r of rows) {
+            const wr = r.win_rate != null ? `${r.win_rate}%` : "—";
+            const date = r.tournament_date
+                ? r.tournament_date.slice(8, 10) + "." + r.tournament_date.slice(5, 7) + "." + r.tournament_date.slice(0, 4)
+                : "";
+            const link = r.decklist
+                ? `<a href="${r.decklist}" target="_blank" rel="noopener" class="archetype-deck-link">↗</a>`
+                : "";
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+        <td>${r.player_name}</td>
+        <td class="td-tourn" title="${r.tournament_name}">${r.tournament_name} <span style="color:#64748b;font-size:0.78rem">${date}</span></td>
+        <td class="num">${r.wins}</td>
+        <td class="num">${r.losses}</td>
+        <td class="num">${r.draws}</td>
+        <td class="num">${wr}</td>
+        <td>${link}</td>
+      `;
+            tbody.appendChild(tr);
+        }
+    } catch (err) {
+        loadingEl.style.display = "none";
+        errorEl.textContent = `${t('Fehler', 'Error')}: ${err instanceof Error ? err.message : t('Unbekannt', 'Unknown')}`;
+        errorEl.style.display = "block";
+    }
+}

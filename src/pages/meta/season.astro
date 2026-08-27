@@ -34,9 +34,6 @@ const t = useTranslations(locale);
 const SEASONS = ["Verdant Season", "Amber Season", "Copper Season"];
 
 const url = new URL(Astro.request.url);
-const season = SEASONS.includes(url.searchParams.get("season") ?? "")
-  ? (url.searchParams.get("season") as string)
-  : SEASONS[0];
 
 const todayIso = getTodayIsoDate();
 const seasonDefaultEntries = await Promise.all(
@@ -46,6 +43,18 @@ const seasonDefaultEntries = await Promise.all(
   ] as const),
 );
 const seasonDefaultFrom = Object.fromEntries(seasonDefaultEntries) as Record<string, string>;
+
+// Pick the season whose first tournament is most recent (excludes seasons with no data yet)
+const defaultSeason =
+  [...SEASONS]
+    .filter((s) => seasonDefaultFrom[s] !== todayIso)
+    .sort((a, b) => seasonDefaultFrom[b].localeCompare(seasonDefaultFrom[a]))[0]
+  ?? SEASONS[SEASONS.length - 1];
+
+const season = SEASONS.includes(url.searchParams.get("season") ?? "")
+  ? (url.searchParams.get("season") as string)
+  : defaultSeason;
+
 const range = resolveDateRange({
   fromParam: url.searchParams.get("from"),
   toParam: url.searchParams.get("to"),
@@ -153,6 +162,9 @@ try {
               <MetaBreakdownChart
                 data={metaBreakdown}
                 title={`${t.meta.charts.metaBreakdown} — ${season} (${rangeLabel})`}
+                from={range.from}
+                to={range.to}
+                season={season}
               />
             </div>
           )}
