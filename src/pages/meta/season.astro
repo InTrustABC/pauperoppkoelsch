@@ -31,7 +31,7 @@ import { useTranslations } from '../../i18n/index';
 // Hardcoded seasons — add new season names here as they are created
 const { locale } = Astro.locals;
 const t = useTranslations(locale);
-const SEASONS = ["Verdant Season", "Amber Season"];
+const SEASONS = ["Verdant Season", "Amber Season", "Copper Season"];
 
 const url = new URL(Astro.request.url);
 const season = SEASONS.includes(url.searchParams.get("season") ?? "")
